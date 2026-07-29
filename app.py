@@ -283,14 +283,23 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
             
             # Action buttons
             is_fav = utils.is_favorite(song['id'])
-            fav_label = "💔 Remove from Favorites" if is_fav else "❤️ Add to Favorites"
+            fav_label = "💔 Remove" if is_fav else "❤️ Favorite"
             
-            col_actions_1, col_actions_2 = st.columns([1, 1])
+            col_actions_1, col_actions_2, col_actions_3 = st.columns([1, 1, 1])
             with col_actions_1:
                 if st.button(fav_label, key="player_fav_btn", type="primary" if not is_fav else "secondary"):
                     toggle_fav_song(song)
             with col_actions_2:
-                if st.button("❌ Close Player", key="player_close_btn", type="secondary"):
+                if st.button("📥 Download", key="player_dl_btn", type="secondary", help="Download to your Windows Downloads folder"):
+                    with st.spinner("Downloading..."):
+                        dl_dir, dl_filename = utils.download_audio_local(song['url'])
+                        if dl_filename:
+                            st.success(f"Saved to Downloads!")
+                            st.toast("✅ Download completed!")
+                        else:
+                            st.error("Failed.")
+            with col_actions_3:
+                if st.button("❌ Close", key="player_close_btn", type="secondary"):
                     st.session_state.current_song = None
                     st.session_state.current_audio_url = None
                     st.rerun()

@@ -179,3 +179,38 @@ def get_audio_stream_url(youtube_url):
         except Exception as e:
             print(f"Error extracting audio stream URL: {e}")
             return None
+
+def download_audio_local(youtube_url):
+    """
+    Downloads the audio track directly to the user's local Downloads folder.
+    Returns (download_dir, filename) if successful, otherwise (None, None).
+    """
+    import yt_dlp
+    import os
+    
+    try:
+        download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+        if not os.path.exists(download_dir):
+            download_dir = os.path.join(os.getcwd(), "downloads")
+    except Exception:
+        download_dir = os.path.join(os.getcwd(), "downloads")
+        
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+        
+    ydl_opts = {
+        'format': 'bestaudio',
+        'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
+        'quiet': True,
+        'no_warnings': True,
+        'nocheckcertificate': True
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            info = ydl.extract_info(youtube_url, download=True)
+            filename = ydl.prepare_filename(info)
+            basename = os.path.basename(filename)
+            return download_dir, basename
+        except Exception as e:
+            print(f"Error downloading audio locally: {e}")
+            return None, None
