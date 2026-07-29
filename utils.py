@@ -224,7 +224,7 @@ def get_audio_bytes_via_ytdl(youtube_url):
             title = info.get('title', 'audio')
             # Sanitize title for filename
             clean_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-            download_filename = f"{clean_title}.{ext}"
+            download_filename = f"{clean_title}.mp3"
             
             return data, download_filename
         except Exception as e:

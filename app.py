@@ -283,16 +283,64 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
             
             # Action buttons
             is_fav = utils.is_favorite(song['id'])
-            fav_label = "💔 Remove from Favorites" if is_fav else "❤️ Add to Favorites"
+            fav_label = "💔 Remove" if is_fav else "❤️ Favorite"
             
-            col_actions_1, col_actions_2 = st.columns([1, 1])
+            # Reset download state if we change song
+            if st.session_state.get('download_song_id') != song['id']:
+                st.session_state.download_ready = False
+                st.session_state.download_failed = False
+                st.session_state.download_bytes = None
+                st.session_state.download_filename = ""
+                st.session_state.download_song_id = song['id']
+                
+            col_actions_1, col_actions_2, col_actions_3 = st.columns([1, 1, 1])
             with col_actions_1:
                 if st.button(fav_label, key="player_fav_btn", type="primary" if not is_fav else "secondary"):
                     toggle_fav_song(song)
             with col_actions_2:
-                if st.button("❌ Close Player", key="player_close_btn", type="secondary"):
+                if st.session_state.get('download_ready'):
+                    # Native Streamlit browser download button
+                    st.download_button(
+                        label="⬇️ Save MP3",
+                        data=st.session_state.download_bytes,
+                        file_name=st.session_state.download_filename,
+                        mime="audio/mp3",
+                        type="primary",
+                        use_container_width=True,
+                        key="browser_dl_btn"
+                    )
+                elif st.session_state.get('download_failed'):
+                    st.link_button(
+                        label="🔗 Open MP3 Link",
+                        url=audio_url,
+                        type="primary",
+                        use_container_width=True,
+                        help="Right-click on the page and choose 'Save Audio As...'"
+                    )
+                    st.caption("💡 Right-click and select 'Save audio as...' to download.")
+                else:
+                    if st.button("📥 Download", key="player_dl_btn", type="secondary", help="Prepare song for download"):
+                        with st.spinner("Preparing..."):
+                            data, filename = utils.get_audio_bytes_via_ytdl(song['url'])
+                            if data:
+                                st.session_state.download_bytes = data
+                                st.session_state.download_filename = filename
+                                st.session_state.download_ready = True
+                                st.session_state.download_failed = False
+                                st.toast("✅ Download ready! Click Save below.")
+                                st.rerun()
+                            else:
+                                st.session_state.download_failed = True
+                                st.toast("⚠️ Cloud block detected. Use fallback link.")
+                                st.rerun()
+            with col_actions_3:
+                if st.button("❌ Close", key="player_close_btn", type="secondary"):
                     st.session_state.current_song = None
                     st.session_state.current_audio_url = None
+                    st.session_state.download_ready = False
+                    st.session_state.download_failed = False
+                    st.session_state.download_bytes = None
+                    st.session_state.download_filename = ""
                     st.rerun()
                     
         # Native Audio player below info, autoplays when loaded
