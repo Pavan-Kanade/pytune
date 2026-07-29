@@ -285,23 +285,48 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
             is_fav = utils.is_favorite(song['id'])
             fav_label = "💔 Remove" if is_fav else "❤️ Favorite"
             
+            # Reset download state if we change song
+            if st.session_state.get('download_song_id') != song['id']:
+                st.session_state.download_ready = False
+                st.session_state.download_bytes = None
+                st.session_state.download_filename = ""
+                st.session_state.download_song_id = song['id']
+                
             col_actions_1, col_actions_2, col_actions_3 = st.columns([1, 1, 1])
             with col_actions_1:
                 if st.button(fav_label, key="player_fav_btn", type="primary" if not is_fav else "secondary"):
                     toggle_fav_song(song)
             with col_actions_2:
-                if st.button("📥 Download", key="player_dl_btn", type="secondary", help="Download to your Windows Downloads folder"):
-                    with st.spinner("Downloading..."):
-                        dl_dir, dl_filename = utils.download_audio_local(song['url'])
-                        if dl_filename:
-                            st.success(f"Saved to Downloads!")
-                            st.toast("✅ Download completed!")
-                        else:
-                            st.error("Failed.")
+                if st.session_state.get('download_ready'):
+                    # Native Streamlit browser download button
+                    st.download_button(
+                        label="⬇️ Save Audio",
+                        data=st.session_state.download_bytes,
+                        file_name=st.session_state.download_filename,
+                        mime="audio/webm" if st.session_state.download_filename.endswith(".webm") else "audio/mp4",
+                        type="primary",
+                        use_container_width=True,
+                        key="browser_dl_btn"
+                    )
+                else:
+                    if st.button("📥 Download", key="player_dl_btn", type="secondary", help="Prepare song for download"):
+                        with st.spinner("Preparing..."):
+                            data, filename = utils.get_audio_bytes_via_ytdl(song['url'])
+                            if data:
+                                st.session_state.download_bytes = data
+                                st.session_state.download_filename = filename
+                                st.session_state.download_ready = True
+                                st.toast("✅ Download ready! Click Save below.")
+                                st.rerun()
+                            else:
+                                st.error("Failed.")
             with col_actions_3:
                 if st.button("❌ Close", key="player_close_btn", type="secondary"):
                     st.session_state.current_song = None
                     st.session_state.current_audio_url = None
+                    st.session_state.download_ready = False
+                    st.session_state.download_bytes = None
+                    st.session_state.download_filename = ""
                     st.rerun()
                     
         # Native Audio player below info, autoplays when loaded

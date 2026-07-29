@@ -180,37 +180,53 @@ def get_audio_stream_url(youtube_url):
             print(f"Error extracting audio stream URL: {e}")
             return None
 
-def download_audio_local(youtube_url):
+def get_audio_bytes_via_ytdl(youtube_url):
     """
-    Downloads the audio track directly to the user's local Downloads folder.
-    Returns (download_dir, filename) if successful, otherwise (None, None).
+    Downloads the audio track using yt-dlp to a temporary file,
+    reads its bytes, deletes the temp file, and returns (bytes, filename).
+    Compatible with both local laptop run and cloud deployment.
     """
     import yt_dlp
+    import tempfile
     import os
     
-    try:
-        download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
-        if not os.path.exists(download_dir):
-            download_dir = os.path.join(os.getcwd(), "downloads")
-    except Exception:
-        download_dir = os.path.join(os.getcwd(), "downloads")
-        
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
-        
+    # Use system temp directory
+    temp_dir = tempfile.gettempdir()
+    
+    # We want a unique template name
+    outtmpl = os.path.join(temp_dir, 'pytune_temp_%(id)s.%(ext)s')
+    
     ydl_opts = {
         'format': 'bestaudio',
-        'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
+        'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
         'nocheckcertificate': True
     }
+    
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(youtube_url, download=True)
             filename = ydl.prepare_filename(info)
-            basename = os.path.basename(filename)
-            return download_dir, basename
+            
+            # Read bytes
+            with open(filename, 'rb') as f:
+                data = f.read()
+                
+            # Clean up the file
+            try:
+                os.remove(filename)
+            except Exception:
+                pass
+                
+            # Get original extension and title
+            ext = info.get('ext', 'webm')
+            title = info.get('title', 'audio')
+            # Sanitize title for filename
+            clean_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+            download_filename = f"{clean_title}.{ext}"
+            
+            return data, download_filename
         except Exception as e:
-            print(f"Error downloading audio locally: {e}")
+            print(f"Error downloading audio bytes: {e}")
             return None, None
