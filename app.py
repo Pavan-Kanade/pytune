@@ -288,6 +288,7 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
             # Reset download state if we change song
             if st.session_state.get('download_song_id') != song['id']:
                 st.session_state.download_ready = False
+                st.session_state.download_failed = False
                 st.session_state.download_bytes = None
                 st.session_state.download_filename = ""
                 st.session_state.download_song_id = song['id']
@@ -308,6 +309,15 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
                         use_container_width=True,
                         key="browser_dl_btn"
                     )
+                elif st.session_state.get('download_failed'):
+                    st.link_button(
+                        label="🔗 Open Audio Link",
+                        url=audio_url,
+                        type="primary",
+                        use_container_width=True,
+                        help="Right-click on the page and choose 'Save Audio As...'"
+                    )
+                    st.caption("💡 Right-click and select 'Save audio as...' to download.")
                 else:
                     if st.button("📥 Download", key="player_dl_btn", type="secondary", help="Prepare song for download"):
                         with st.spinner("Preparing..."):
@@ -316,15 +326,19 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
                                 st.session_state.download_bytes = data
                                 st.session_state.download_filename = filename
                                 st.session_state.download_ready = True
+                                st.session_state.download_failed = False
                                 st.toast("✅ Download ready! Click Save below.")
                                 st.rerun()
                             else:
-                                st.error("Failed.")
+                                st.session_state.download_failed = True
+                                st.toast("⚠️ Cloud block detected. Use fallback link.")
+                                st.rerun()
             with col_actions_3:
                 if st.button("❌ Close", key="player_close_btn", type="secondary"):
                     st.session_state.current_song = None
                     st.session_state.current_audio_url = None
                     st.session_state.download_ready = False
+                    st.session_state.download_failed = False
                     st.session_state.download_bytes = None
                     st.session_state.download_filename = ""
                     st.rerun()
