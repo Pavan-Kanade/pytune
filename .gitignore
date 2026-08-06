@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+pytune_data.json
+downloads/
+.idea/
+.vscode/
