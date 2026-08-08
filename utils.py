@@ -108,14 +108,19 @@ def search_youtube(query, max_results=12):
 # Local Data Persistence Functions
 
 def load_data():
-    """Loads favorites and search history from a local JSON file."""
-    default_data = {"favorites": [], "history": []}
+    """Loads favorites, search history, and recent searches from a local JSON file."""
+    default_data = {"favorites": [], "history": [], "searches": []}
     if not os.path.exists(DATA_FILE):
         return default_data
         
     try:
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
+            # Ensure default keys exist
+            if 'favorites' not in data: data['favorites'] = []
+            if 'history' not in data: data['history'] = []
+            if 'searches' not in data: data['searches'] = []
+            return data
     except Exception as e:
         print(f"Error loading local data: {e}")
         return default_data
@@ -230,3 +235,17 @@ def get_audio_bytes_via_ytdl(youtube_url):
         except Exception as e:
             print(f"Error downloading audio bytes: {e}")
             return None, None
+
+def add_recent_search(query):
+    """Adds a search query to the persistent search history list."""
+    query = query.strip()
+    if not query:
+        return
+    data = load_data()
+    # Remove existing copy if present
+    data['searches'] = [item for item in data['searches'] if item.lower() != query.lower()]
+    # Insert at the beginning (most recent first)
+    data['searches'].insert(0, query)
+    # Keep only the last 5 items
+    data['searches'] = data['searches'][:5]
+    save_data(data)

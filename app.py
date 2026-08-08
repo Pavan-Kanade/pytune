@@ -180,7 +180,14 @@ div[data-testid="stTextInput"] input:focus {
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Helper function to play a song
-def play_song(song):
+def play_song(song, playlist=None, index=0):
+    if playlist:
+        st.session_state.playlist = playlist
+        st.session_state.playlist_index = index
+    else:
+        st.session_state.playlist = [song]
+        st.session_state.playlist_index = 0
+        
     with st.spinner("Extracting audio stream..."):
         audio_url = utils.get_audio_stream_url(song['url'])
         if audio_url:
@@ -213,10 +220,37 @@ if 'search_results' not in st.session_state:
 if 'search_input_val' not in st.session_state:
     st.session_state.search_input_val = ""
 
-# Load persistent favorites and history
+if 'playlist' not in st.session_state:
+    st.session_state.playlist = []
+
+if 'playlist_index' not in st.session_state:
+    st.session_state.playlist_index = 0
+
+# Load persistent favorites, history, and searches
 local_data = utils.load_data()
 favorites = local_data.get('favorites', [])
 history = local_data.get('history', [])
+recent_searches = local_data.get('searches', [])
+
+# Autoplay query param handler
+if "play_index" in st.query_params:
+    try:
+        new_idx = int(st.query_params["play_index"])
+        del st.query_params["play_index"] # Clear immediately to avoid loop
+        
+        if 'playlist' in st.session_state and 0 <= new_idx < len(st.session_state.playlist):
+            st.session_state.playlist_index = new_idx
+            next_song = st.session_state.playlist[new_idx]
+            
+            with st.spinner("Loading next song..."):
+                audio_url = utils.get_audio_stream_url(next_song['url'])
+                if audio_url:
+                    st.session_state.current_song = next_song
+                    st.session_state.current_audio_url = audio_url
+                    utils.add_to_history(next_song)
+                    st.rerun()
+    except Exception as e:
+        print(f"Error in autoplay handler: {e}")
 
 # SIDEBAR: Favorites and History
 with st.sidebar:
@@ -227,14 +261,14 @@ with st.sidebar:
     if not favorites:
         st.caption("No favorites added yet. Search and click ❤️ to add.")
     else:
-        for fav in favorites:
+        for f_idx, fav in enumerate(favorites):
             # Let's create a row with two columns: Clickable song name and delete button
             col_name, col_btn = st.columns([4, 1])
             with col_name:
                 # Custom HTML look for item
                 safe_title = fav['title'][:25] + "..." if len(fav['title']) > 25 else fav['title']
                 if st.button(f"🎵 {safe_title}", key=f"fav_play_{fav['id']}", use_container_width=True, type="secondary"):
-                    play_song(fav)
+                    play_song(fav, playlist=favorites, index=f_idx)
             with col_btn:
                 if st.button("❌", key=f"fav_del_{fav['id']}", help="Remove from favorites"):
                     utils.toggle_favorite(fav)
@@ -249,7 +283,7 @@ with st.sidebar:
         for idx, hist in enumerate(history[:10]):  # Show top 10 recent
             safe_title = hist['title'][:28] + "..." if len(hist['title']) > 28 else hist['title']
             if st.button(f"⏱️ {safe_title}", key=f"hist_play_{hist['id']}_{idx}", use_container_width=True, type="secondary"):
-                play_song(hist)
+                play_song(hist, playlist=history, index=idx)
                 
         # Clear History button
         st.write("")
@@ -259,6 +293,20 @@ with st.sidebar:
             utils.save_data(data)
             st.toast("History cleared!")
             st.rerun()
+
+    # Recent Searches Section
+    st.markdown("## 🔎 Recent Searches")
+    if not recent_searches:
+        st.caption("No recent searches yet.")
+    else:
+        for s_idx, search_item in enumerate(recent_searches):
+            if st.button(f"🔎 {search_item}", key=f"recent_search_{s_idx}_{search_item}", use_container_width=True, type="secondary"):
+                st.session_state.search_input_val = search_item
+                with st.spinner(f"Searching for '{search_item}'..."):
+                    results = utils.search_youtube(search_item)
+                    st.session_state.search_results = results
+                    utils.add_recent_search(search_item)
+                st.rerun()
 
 
 # MAIN CONTENT AREA
@@ -343,9 +391,34 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
                     st.session_state.download_filename = ""
                     st.rerun()
                     
-        # Native Audio player below info, autoplays when loaded
+        # Custom HTML player that triggers parent window to load the next song in playlist when audio finishes
         st.write("")
-        st.audio(audio_url, format="audio/mp3", autoplay=True)
+        current_idx = st.session_state.get('playlist_index', 0)
+        playlist = st.session_state.get('playlist', [])
+        next_idx = current_idx + 1
+        
+        has_next = next_idx < len(playlist)
+        
+        if has_next:
+            player_html = f"""
+            <audio id="audio-player" src="{audio_url}" controls autoplay style="width: 100%;"></audio>
+            <script>
+                var audio = document.getElementById("audio-player");
+                audio.onended = function() {{
+                    console.log("Audio ended. Navigating parent to play_index={next_idx}...");
+                    try {{
+                        var parentUrl = new URL(window.parent.location.href);
+                        parentUrl.searchParams.set("play_index", "{next_idx}");
+                        window.parent.location.href = parentUrl.href;
+                    }} catch(e) {{
+                        console.error("Error modifying parent location:", e);
+                    }}
+                }};
+            </script>
+            """
+            st.components.v1.html(player_html, height=60)
+        else:
+            st.audio(audio_url, format="audio/mp3", autoplay=True)
 
 # 2. SEARCH SYSTEM
 col_search, col_btn = st.columns([5, 1])
@@ -370,11 +443,21 @@ if search_clicked or (search_query and search_query != st.session_state.search_i
             results = utils.search_youtube(search_query)
             if results:
                 st.session_state.search_results = results
+                utils.add_recent_search(search_query)
             else:
                 st.session_state.search_results = []
                 st.warning("No songs found. Please check spelling or try another term.")
     else:
         st.session_state.search_results = []
+
+# Search Tips and Helper Box
+with st.expander("💡 Song Searching Help & Tips", expanded=False):
+    st.markdown("""
+    * **Use Artist Name:** Search with the artist's name for best results (e.g., `Arijit Singh Kesariya`).
+    * **Autoplay Playlist:** When you play a song, the player will **automatically play the next song** from the search results or favorites list!
+    * **Specific Version:** Add terms like `Lyrical` or `Official Audio` for studio versions.
+    * **Indian Idol & Live Shows:** Include the show name for live performances (e.g., `Indian Idol Udit Main Yahan Hoon`).
+    """)
 
 # QUICK RECOMMENDATIONS (Show when there are no search results or search query is empty)
 if not st.session_state.search_input_val:
@@ -423,7 +506,7 @@ if st.session_state.search_results:
                         col_card_play, col_card_fav = st.columns([2, 1])
                         with col_card_play:
                             if st.button("▶️ Play", key=f"play_card_{song['id']}", type="primary", use_container_width=True):
-                                play_song(song)
+                                play_song(song, playlist=results_list, index=i+j)
                         with col_card_fav:
                             is_fav = utils.is_favorite(song['id'])
                             heart_icon = "❤️" if is_fav else "🤍"
