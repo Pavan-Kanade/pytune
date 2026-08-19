@@ -189,15 +189,9 @@ def play_song(song, playlist=None, index=0):
         st.session_state.playlist = [song]
         st.session_state.playlist_index = 0
         
-    with st.spinner("Extracting audio stream..."):
-        audio_url = utils.get_audio_stream_url(song['url'])
-        if audio_url:
-            st.session_state.current_song = song
-            st.session_state.current_audio_url = audio_url
-            utils.add_to_history(song)
-            st.rerun()
-        else:
-            st.error("Could not extract audio stream. Please try another song.")
+    st.session_state.current_song = song
+    utils.add_to_history(song)
+    st.rerun()
 
 # Helper function to toggle favorite status
 def toggle_fav_song(song):
@@ -211,9 +205,6 @@ def toggle_fav_song(song):
 # Initialize Session State
 if 'current_song' not in st.session_state:
     st.session_state.current_song = None
-
-if 'current_audio_url' not in st.session_state:
-    st.session_state.current_audio_url = None
 
 if 'search_results' not in st.session_state:
     st.session_state.search_results = []
@@ -242,16 +233,9 @@ if "play_index" in st.query_params:
         if 'playlist' in st.session_state and 0 <= new_idx < len(st.session_state.playlist):
             st.session_state.playlist_index = new_idx
             next_song = st.session_state.playlist[new_idx]
-            
-            with st.spinner("Loading next song..."):
-                audio_url = utils.get_audio_stream_url(next_song['url'])
-                if audio_url:
-                    st.session_state.current_song = next_song
-                    st.session_state.current_audio_url = audio_url
-                    utils.add_to_history(next_song)
-                    st.rerun()
-                else:
-                    st.toast("⚠️ Could not load next song in playlist.")
+            st.session_state.current_song = next_song
+            utils.add_to_history(next_song)
+            st.rerun()
     except Exception as e:
         print(f"Error in autoplay handler: {e}")
 
@@ -317,20 +301,68 @@ st.markdown('<p class="brand-title">PyTune</p>', unsafe_allow_html=True)
 st.markdown('<p class="brand-subtitle">Stream and play your favorite songs on your local laptop</p>', unsafe_allow_html=True)
 
 # 1. NOW PLAYING COMPONENT (Placed at the top when active)
-if st.session_state.current_song and st.session_state.get('current_audio_url'):
+if st.session_state.current_song:
     song = st.session_state.current_song
-    audio_url = st.session_state.current_audio_url
+    video_id = song['id']
     
     with st.container(border=True):
-        col_thumb, col_info = st.columns([1, 3])
+        col_player, col_info = st.columns([1.5, 1])
         
-        with col_thumb:
-            st.image(song['thumbnail'], use_container_width=True)
+        with col_player:
+            current_idx = st.session_state.get('playlist_index', 0)
+            playlist = st.session_state.get('playlist', [])
+            next_idx = current_idx + 1
+            has_next = next_idx < len(playlist)
+            
+            player_html = f"""
+            <div style="width: 100%; border-radius: 10px; overflow: hidden; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                <div id="yt-player"></div>
+            </div>
+            <script>
+                var tag = document.createElement('script');
+                tag.src = "https://www.youtube.com/iframe_api";
+                var firstScriptTag = document.getElementsByTagName('script')[0];
+                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+                var player;
+                function onYouTubeIframeAPIReady() {{
+                    player = new YT.Player('yt-player', {{
+                        height: '210',
+                        width: '100%',
+                        videoId: '{video_id}',
+                        playerVars: {{
+                            'autoplay': 1,
+                            'playsinline': 1,
+                            'rel': 0,
+                            'modestbranding': 1
+                        }},
+                        events: {{
+                            'onStateChange': onPlayerStateChange
+                        }}
+                    }});
+                }}
+
+                function onPlayerStateChange(event) {{
+                    if (event.data === 0 && {str(has_next).lower()}) {{
+                        try {{
+                            var parentUrl = new URL(window.parent.location.href);
+                            parentUrl.searchParams.set("play_index", "{next_idx}");
+                            window.parent.location.href = parentUrl.href;
+                        }} catch(e) {{
+                            console.error("Autoplay navigation error:", e);
+                        }}
+                    }}
+                }}
+            </script>
+            """
+            st.components.v1.html(player_html, height=220)
             
         with col_info:
-            st.markdown("### 🎵 Now Playing (Audio Only)")
+            st.markdown("### 🎵 Now Playing")
             st.markdown(f"**Title:** {song['title']}")
             st.markdown(f"**Channel:** {song['channel']} | **Duration:** {song['duration']}")
+            if 'views' in song:
+                st.caption(f"👀 {song['views']}")
             
             # Action buttons
             is_fav = utils.is_favorite(song['id'])
@@ -350,7 +382,6 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
                     toggle_fav_song(song)
             with col_actions_2:
                 if st.session_state.get('download_ready'):
-                    # Native Streamlit browser download button
                     st.download_button(
                         label="⬇️ Save MP3",
                         data=st.session_state.download_bytes,
@@ -360,68 +391,29 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
                         use_container_width=True,
                         key="browser_dl_btn"
                     )
-                elif st.session_state.get('download_failed'):
-                    st.link_button(
-                        label="🔗 Open MP3 Link",
-                        url=audio_url,
-                        type="primary",
-                        use_container_width=True,
-                        help="Right-click on the page and choose 'Save Audio As...'"
-                    )
-                    st.caption("💡 Right-click and select 'Save audio as...' to download.")
                 else:
-                    if st.button("📥 Download", key="player_dl_btn", type="secondary", help="Prepare song for download"):
-                        with st.spinner("Preparing..."):
+                    if st.button("📥 Download MP3", key="player_dl_btn", type="secondary", help="Prepare song as MP3 for download"):
+                        with st.spinner("Preparing MP3 download..."):
                             data, filename = utils.get_audio_bytes_via_ytdl(song['url'])
                             if data:
                                 st.session_state.download_bytes = data
                                 st.session_state.download_filename = filename
                                 st.session_state.download_ready = True
                                 st.session_state.download_failed = False
-                                st.toast("✅ Download ready! Click Save below.")
+                                st.toast("✅ MP3 ready! Click Save MP3 below.")
                                 st.rerun()
                             else:
                                 st.session_state.download_failed = True
-                                st.toast("⚠️ Cloud block detected. Use fallback link.")
+                                st.toast("⚠️ Download failed. Please try another song.")
                                 st.rerun()
             with col_actions_3:
                 if st.button("❌ Close", key="player_close_btn", type="secondary"):
                     st.session_state.current_song = None
-                    st.session_state.current_audio_url = None
                     st.session_state.download_ready = False
                     st.session_state.download_failed = False
                     st.session_state.download_bytes = None
                     st.session_state.download_filename = ""
                     st.rerun()
-                    
-        # Custom HTML player that triggers parent window to load the next song in playlist when audio finishes
-        st.write("")
-        current_idx = st.session_state.get('playlist_index', 0)
-        playlist = st.session_state.get('playlist', [])
-        next_idx = current_idx + 1
-        
-        has_next = next_idx < len(playlist)
-        
-        if has_next:
-            player_html = f"""
-            <audio id="audio-player" src="{html.escape(audio_url)}" controls autoplay style="width: 100%;"></audio>
-            <script>
-                var audio = document.getElementById("audio-player");
-                audio.onended = function() {{
-                    console.log("Audio ended. Navigating parent to play_index={next_idx}...");
-                    try {{
-                        var parentUrl = new URL(window.parent.location.href);
-                        parentUrl.searchParams.set("play_index", "{next_idx}");
-                        window.parent.location.href = parentUrl.href;
-                    }} catch(e) {{
-                        console.error("Error modifying parent location:", e);
-                    }}
-                }};
-            </script>
-            """
-            st.components.v1.html(player_html, height=60)
-        else:
-            st.audio(audio_url, format="audio/mp3", autoplay=True)
 
 # 2. SEARCH SYSTEM
 col_search, col_btn = st.columns([5, 1])
