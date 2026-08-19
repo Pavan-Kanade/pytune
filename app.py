@@ -3,6 +3,7 @@ import importlib
 import utils
 importlib.reload(utils)
 import os
+import html
 
 # Page Configuration
 st.set_page_config(
@@ -249,6 +250,8 @@ if "play_index" in st.query_params:
                     st.session_state.current_audio_url = audio_url
                     utils.add_to_history(next_song)
                     st.rerun()
+                else:
+                    st.toast("⚠️ Could not load next song in playlist.")
     except Exception as e:
         print(f"Error in autoplay handler: {e}")
 
@@ -267,10 +270,10 @@ with st.sidebar:
             with col_name:
                 # Custom HTML look for item
                 safe_title = fav['title'][:25] + "..." if len(fav['title']) > 25 else fav['title']
-                if st.button(f"🎵 {safe_title}", key=f"fav_play_{fav['id']}", use_container_width=True, type="secondary"):
+                if st.button(f"🎵 {safe_title}", key=f"fav_play_{fav['id']}_{f_idx}", use_container_width=True, type="secondary"):
                     play_song(fav, playlist=favorites, index=f_idx)
             with col_btn:
-                if st.button("❌", key=f"fav_del_{fav['id']}", help="Remove from favorites"):
+                if st.button("❌", key=f"fav_del_{fav['id']}_{f_idx}", help="Remove from favorites"):
                     utils.toggle_favorite(fav)
                     st.toast(f"💔 Removed: {fav['title'][:20]}...")
                     st.rerun()
@@ -401,7 +404,7 @@ if st.session_state.current_song and st.session_state.get('current_audio_url'):
         
         if has_next:
             player_html = f"""
-            <audio id="audio-player" src="{audio_url}" controls autoplay style="width: 100%;"></audio>
+            <audio id="audio-player" src="{html.escape(audio_url)}" controls autoplay style="width: 100%;"></audio>
             <script>
                 var audio = document.getElementById("audio-player");
                 audio.onended = function() {{

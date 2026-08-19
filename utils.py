@@ -30,10 +30,10 @@ def search_youtube(query, max_results=12):
         return []
     
     # Locate the ytInitialData JSON object
-    pattern = r'var ytInitialData = ({.*?});'
+    pattern = r'(?:var|window\[")ytInitialData(?:\])?\s*=\s*({.+?});\s*(?:</script>|\n)'
     match = re.search(pattern, html_content)
     if not match:
-        pattern = r'window\["ytInitialData"\] = ({.*?});'
+        pattern = r'ytInitialData\s*=\s*({.+?});'
         match = re.search(pattern, html_content)
         
     if not match:
@@ -49,11 +49,11 @@ def search_youtube(query, max_results=12):
     videos = []
     try:
         # Navigate the JSON structure of search results
-        contents = data['contents']['twoColumnSearchResultsRenderer']['primaryContents']['sectionListRenderer']['contents']
+        contents = data.get('contents', {}).get('twoColumnSearchResultsRenderer', {}).get('primaryContents', {}).get('sectionListRenderer', {}).get('contents', [])
         
         for content in contents:
             if 'itemSectionRenderer' in content:
-                items = content['itemSectionRenderer']['contents']
+                items = content['itemSectionRenderer'].get('contents', [])
                 for item in items:
                     if 'videoRenderer' in item:
                         video_data = item['videoRenderer']
@@ -65,8 +65,11 @@ def search_youtube(query, max_results=12):
                             
                         # Title
                         title = "Unknown Title"
-                        if 'title' in video_data and 'runs' in video_data['title']:
-                            title = html.unescape(video_data['title']['runs'][0]['text'])
+                        if 'title' in video_data:
+                            if 'runs' in video_data['title'] and video_data['title']['runs']:
+                                title = html.unescape(video_data['title']['runs'][0]['text'])
+                            elif 'simpleText' in video_data['title']:
+                                title = html.unescape(video_data['title']['simpleText'])
                         
                         # Thumbnail
                         thumbnail = "https://images.unsplash.com/photo-1614680376593-902f74fa0d41?w=400&q=80"
@@ -116,10 +119,12 @@ def load_data():
     try:
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
+            if not isinstance(data, dict):
+                return default_data
             # Ensure default keys exist
-            if 'favorites' not in data: data['favorites'] = []
-            if 'history' not in data: data['history'] = []
-            if 'searches' not in data: data['searches'] = []
+            if 'favorites' not in data or not isinstance(data['favorites'], list): data['favorites'] = []
+            if 'history' not in data or not isinstance(data['history'], list): data['history'] = []
+            if 'searches' not in data or not isinstance(data['searches'], list): data['searches'] = []
             return data
     except Exception as e:
         print(f"Error loading local data: {e}")
@@ -135,9 +140,11 @@ def save_data(data):
 
 def add_to_history(song):
     """Adds a song to the history. Removes duplicates and limits to last 30 entries."""
+    if not isinstance(song, dict) or 'id' not in song:
+        return
     data = load_data()
     # Remove existing copy if present
-    data['history'] = [item for item in data['history'] if item['id'] != song['id']]
+    data['history'] = [item for item in data['history'] if item.get('id') != song.get('id')]
     # Insert at the beginning (most recent first)
     data['history'].insert(0, song)
     # Keep only the last 30 items
@@ -146,12 +153,14 @@ def add_to_history(song):
 
 def toggle_favorite(song):
     """Toggles favorite status for a song."""
+    if not isinstance(song, dict) or 'id' not in song:
+        return False
     data = load_data()
-    is_fav = any(item['id'] == song['id'] for item in data['favorites'])
+    is_fav = any(item.get('id') == song.get('id') for item in data['favorites'])
     
     if is_fav:
         # Remove from favorites
-        data['favorites'] = [item for item in data['favorites'] if item['id'] != song['id']]
+        data['favorites'] = [item for item in data['favorites'] if item.get('id') != song.get('id')]
         added = False
     else:
         # Add to favorites
@@ -164,7 +173,7 @@ def toggle_favorite(song):
 def is_favorite(song_id):
     """Checks if a song is in favorites."""
     data = load_data()
-    return any(item['id'] == song_id for item in data['favorites'])
+    return any(item.get('id') == song_id for item in data['favorites'])
 
 def get_audio_stream_url(youtube_url):
     """
@@ -228,7 +237,9 @@ def get_audio_bytes_via_ytdl(youtube_url):
             ext = info.get('ext', 'webm')
             title = info.get('title', 'audio')
             # Sanitize title for filename
-            clean_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+            clean_title = "".join([c for c in title if c.isalnum() or c in (' ', '_', '-')]).strip()
+            if not clean_title:
+                clean_title = "audio"
             download_filename = f"{clean_title}.mp3"
             
             return data, download_filename
