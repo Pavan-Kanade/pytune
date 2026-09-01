@@ -7,178 +7,198 @@ import html
 
 # Page Configuration
 st.set_page_config(
-    page_title="PyTune - Your Personal Music Streamer",
-    page_icon="🎵",
+    page_title="PyTune - Spotify Music",
+    page_icon="🟢",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Premium Styling
-CUSTOM_CSS = """
+# Spotify Signature Dark Theme Styling
+SPOTIFY_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
 
 /* Apply font globally */
 html, body, [class*="css"], .stApp {
-    font-family: 'Poppins', sans-serif !important;
-    background-color: #090a0f !important;
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    background-color: #121212 !important;
+    color: #ffffff !important;
 }
 
-/* Main background glow effect */
 .stApp {
-    background: radial-gradient(circle at 80% 20%, #1e113a 0%, #090a0f 70%) !important;
-    color: #f0f1f5 !important;
+    background-color: #121212 !important;
 }
 
-/* Custom Scrollbar */
+/* Scrollbar */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
 }
 ::-webkit-scrollbar-track {
-    background: #090a0f;
+    background: #121212;
 }
 ::-webkit-scrollbar-thumb {
-    background: #7c4dff;
-    border-radius: 3px;
+    background: #535353;
+    border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: #00e5ff;
+    background: #b3b3b3;
 }
 
-/* Sidebar Custom Styling */
+/* Sidebar Styling */
 section[data-testid="stSidebar"] {
-    background-color: #050608 !important;
-    border-right: 1px solid #1a1c24 !important;
-}
-section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2 {
-    color: #00e5ff !important;
-    font-size: 1.25rem !important;
-    border-bottom: 1px solid #1a1c24;
-    padding-bottom: 8px;
-    margin-top: 1.5rem;
+    background-color: #000000 !important;
+    border-right: 1px solid #181818 !important;
+    padding-top: 1rem;
 }
 
-/* Cards (st.container with border) styling */
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2, 
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+    color: #b3b3b3 !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    margin-top: 1.5rem !important;
+    margin-bottom: 0.8rem !important;
+}
+
+/* Spotify Card Container */
 div[data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: #0e1017 !important;
-    border: 1px solid #1f2330 !important;
-    border-radius: 12px !important;
-    padding: 14px !important;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    background-color: #181818 !important;
+    border: 1px solid #242424 !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+    transition: all 0.3s cubic-bezier(0.3, 0, 0, 1) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
 }
 div[data-testid="stVerticalBlockBorderWrapper"]:hover {
-    border-color: #7c4dff !important;
-    box-shadow: 0 8px 24px rgba(124, 77, 255, 0.25) !important;
+    background-color: #282828 !important;
+    border-color: #383838 !important;
     transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7) !important;
 }
 
-/* Song card images styling */
 div[data-testid="stVerticalBlockBorderWrapper"] img {
-    border-radius: 8px !important;
+    border-radius: 6px !important;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Button Custom Styling */
-/* Play button (Primary) */
+/* Primary Button - Spotify Green */
 div.stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #7c4dff 0%, #00e5ff 100%) !important;
-    color: #ffffff !important;
-    font-weight: 600 !important;
+    background-color: #1DB954 !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
     border: none !important;
-    border-radius: 8px !important;
-    padding: 6px 16px !important;
-    width: 100% !important;
-    box-shadow: 0 4px 15px rgba(124, 77, 255, 0.3) !important;
-    transition: all 0.3s ease !important;
+    border-radius: 500px !important;
+    padding: 8px 20px !important;
+    font-size: 0.9rem !important;
+    letter-spacing: 0.3px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 4px 12px rgba(29, 185, 84, 0.3) !important;
 }
 div.stButton > button[kind="primary"]:hover {
-    box-shadow: 0 6px 20px rgba(0, 229, 255, 0.5) !important;
-    transform: translateY(-1px) !important;
+    background-color: #1ed760 !important;
+    transform: scale(1.04) !important;
+    box-shadow: 0 6px 20px rgba(29, 185, 84, 0.5) !important;
+    color: #000000 !important;
 }
 
-/* Other buttons (Secondary) */
+/* Secondary Button - Dark Glass */
 div.stButton > button[kind="secondary"] {
-    background-color: #161821 !important;
-    color: #e2e8f0 !important;
-    border: 1px solid #2a2d3d !important;
-    border-radius: 8px !important;
-    padding: 6px 12px !important;
-    width: 100% !important;
+    background-color: #242424 !important;
+    color: #ffffff !important;
+    border: 1px solid #333333 !important;
+    border-radius: 500px !important;
+    padding: 6px 16px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
     transition: all 0.2s ease !important;
 }
 div.stButton > button[kind="secondary"]:hover {
-    border-color: #00e5ff !important;
-    color: #00e5ff !important;
-    background-color: #1a1d29 !important;
+    border-color: #ffffff !important;
+    background-color: #2a2a2a !important;
+    color: #1DB954 !important;
+    transform: scale(1.02);
 }
 
 /* Input Search bar */
 div[data-testid="stTextInput"] input {
-    background-color: #0e1017 !important;
+    background-color: #242424 !important;
     color: #ffffff !important;
-    border: 1px solid #1f2330 !important;
-    border-radius: 10px !important;
-    padding: 12px 16px !important;
+    border: 1px solid #383838 !important;
+    border-radius: 500px !important;
+    padding: 12px 24px !important;
     font-size: 15px !important;
+    font-weight: 500 !important;
     transition: all 0.3s ease !important;
 }
 div[data-testid="stTextInput"] input:focus {
-    border-color: #00e5ff !important;
-    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3) !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Branding header styling */
-.brand-title {
-    font-size: 2.8rem;
-    font-weight: 800;
-    margin: 0;
-    padding: 0;
-    background: linear-gradient(135deg, #a855f7 0%, #06b6d4 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.brand-subtitle {
-    color: #94a3b8;
-    font-size: 1.1rem;
-    margin-bottom: 2rem;
-}
-
-/* Sidebar Logo & Branding */
-.sidebar-brand {
+/* Logo & Headers */
+.spotify-logo {
     font-size: 1.8rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #a855f7 0%, #06b6d4 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-align: center;
-    margin-bottom: 1.5rem;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+    margin-bottom: 1rem;
+}
+.spotify-logo span {
+    color: #1DB954;
 }
 
-/* Quick play list items */
-.song-list-item {
-    padding: 8px;
-    border-radius: 8px;
-    background-color: #0f1015;
-    border: 1px solid #1a1c24;
+.spotify-hero {
+    background: linear-gradient(180deg, #450af5 0%, #121212 100%);
+    padding: 2.5rem 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.spotify-hero-title {
+    font-size: 3.5rem;
+    font-weight: 900;
+    margin: 0;
+    color: #ffffff;
+}
+.spotify-hero-sub {
+    color: #e0e0e0;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    color: #ffffff;
+}
+
+/* Pill buttons for categories */
+.genre-pill {
+    background-color: #2a2a2a;
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 500px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: inline-block;
+    margin-right: 8px;
     margin-bottom: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
 }
-.song-list-item:hover {
-    background-color: #171822;
-    border-color: #7c4dff;
-}
-
-/* Floating player info */
-.player-container {
-    background-color: #0b0d16 !important;
-    border: 1px solid #7c4dff !important;
-    box-shadow: 0 0 20px rgba(124, 77, 255, 0.2) !important;
+.genre-pill:hover {
+    background-color: #1DB954;
+    color: #000;
 }
 </style>
 """
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+st.markdown(SPOTIFY_CSS, unsafe_allow_html=True)
 
 # Helper function to play a song
 def play_song(song, playlist=None, index=0):
@@ -197,9 +217,9 @@ def play_song(song, playlist=None, index=0):
 def toggle_fav_song(song):
     is_now_fav = utils.toggle_favorite(song)
     if is_now_fav:
-        st.toast(f"❤️ Added to Favorites: {song['title'][:30]}...")
+        st.toast(f"❤️ Added to Liked Songs: {song['title'][:30]}...")
     else:
-        st.toast(f"💔 Removed from Favorites: {song['title'][:30]}...")
+        st.toast(f"💔 Removed from Liked Songs: {song['title'][:30]}...")
     st.rerun()
 
 # Initialize Session State
@@ -218,17 +238,21 @@ if 'playlist' not in st.session_state:
 if 'playlist_index' not in st.session_state:
     st.session_state.playlist_index = 0
 
-# Load persistent favorites, history, and searches
+if 'active_nav' not in st.session_state:
+    st.session_state.active_nav = "Home"
+
+# Load persistent favorites, history, playlists, and searches
 local_data = utils.load_data()
 favorites = local_data.get('favorites', [])
 history = local_data.get('history', [])
 recent_searches = local_data.get('searches', [])
+user_playlists = local_data.get('playlists', {})
 
 # Autoplay query param handler
 if "play_index" in st.query_params:
     try:
         new_idx = int(st.query_params["play_index"])
-        del st.query_params["play_index"] # Clear immediately to avoid loop
+        del st.query_params["play_index"] # Clear immediately
         
         if 'playlist' in st.session_state and 0 <= new_idx < len(st.session_state.playlist):
             st.session_state.playlist_index = new_idx
@@ -239,56 +263,67 @@ if "play_index" in st.query_params:
     except Exception as e:
         print(f"Error in autoplay handler: {e}")
 
-# SIDEBAR: Favorites and History
+# SIDEBAR: Spotify Navigation
 with st.sidebar:
-    st.markdown('<p class="sidebar-brand">PyTune 🎵</p>', unsafe_allow_html=True)
+    st.markdown('<p class="spotify-logo">🟢 <span>PyTune</span></p>', unsafe_allow_html=True)
     
-    # Favorites Section
-    st.markdown("## ❤️ Favorites")
-    if not favorites:
-        st.caption("No favorites added yet. Search and click ❤️ to add.")
-    else:
-        for f_idx, fav in enumerate(favorites):
-            # Let's create a row with two columns: Clickable song name and delete button
-            col_name, col_btn = st.columns([4, 1])
-            with col_name:
-                # Custom HTML look for item
-                safe_title = fav['title'][:25] + "..." if len(fav['title']) > 25 else fav['title']
-                if st.button(f"🎵 {safe_title}", key=f"fav_play_{fav['id']}_{f_idx}", use_container_width=True, type="secondary"):
-                    play_song(fav, playlist=favorites, index=f_idx)
-            with col_btn:
-                if st.button("❌", key=f"fav_del_{fav['id']}_{f_idx}", help="Remove from favorites"):
-                    utils.toggle_favorite(fav)
-                    st.toast(f"💔 Removed: {fav['title'][:20]}...")
-                    st.rerun()
+    # Navigation Menu
+    nav_choice = st.radio(
+        label="Navigation",
+        options=["🏠 Home", "🔍 Search", "📚 Your Library", "❤️ Liked Songs"],
+        index=["🏠 Home", "🔍 Search", "📚 Your Library", "❤️ Liked Songs"].index(
+            f"🏠 Home" if st.session_state.active_nav == "Home" else
+            f"🔍 Search" if st.session_state.active_nav == "Search" else
+            f"📚 Your Library" if st.session_state.active_nav == "Library" else
+            f"❤️ Liked Songs"
+        ),
+        label_visibility="collapsed"
+    )
+    
+    # Update active nav state
+    if nav_choice == "🏠 Home":
+        st.session_state.active_nav = "Home"
+    elif nav_choice == "🔍 Search":
+        st.session_state.active_nav = "Search"
+    elif nav_choice == "📚 Your Library":
+        st.session_state.active_nav = "Library"
+    elif nav_choice == "❤️ Liked Songs":
+        st.session_state.active_nav = "Liked Songs"
 
-    # History Section
-    st.markdown("## 🕒 Recently Played")
-    if not history:
-        st.caption("No songs played yet. Go play some music!")
+    st.markdown("---")
+
+    # Custom Playlists Section
+    st.markdown("### 📁 Custom Playlists")
+    
+    # Create Playlist Input
+    with st.expander("➕ Create New Playlist", expanded=False):
+        new_pl_name = st.text_input("Playlist Name", key="new_playlist_input", placeholder="My Cool Mix...")
+        if st.button("Create", key="btn_create_pl", type="primary", use_container_width=True):
+            if new_pl_name.strip():
+                created = utils.create_playlist(new_pl_name)
+                if created:
+                    st.toast(f"✅ Created Playlist '{new_pl_name}'!")
+                    st.session_state.active_nav = f"Playlist:{new_pl_name}"
+                    st.rerun()
+                else:
+                    st.toast("⚠️ Playlist already exists.")
+
+    if not user_playlists:
+        st.caption("No custom playlists yet.")
     else:
-        for idx, hist in enumerate(history[:10]):  # Show top 10 recent
-            safe_title = hist['title'][:28] + "..." if len(hist['title']) > 28 else hist['title']
-            if st.button(f"⏱️ {safe_title}", key=f"hist_play_{hist['id']}_{idx}", use_container_width=True, type="secondary"):
-                play_song(hist, playlist=history, index=idx)
-                
-        # Clear History button
-        st.write("")
-        if st.button("🗑️ Clear History", type="secondary", use_container_width=True):
-            data = utils.load_data()
-            data['history'] = []
-            utils.save_data(data)
-            st.toast("History cleared!")
-            st.rerun()
+        for pl_name in list(user_playlists.keys()):
+            song_cnt = len(user_playlists[pl_name])
+            if st.button(f"🎶 {pl_name} ({song_cnt})", key=f"pl_nav_{pl_name}", use_container_width=True, type="secondary"):
+                st.session_state.active_nav = f"Playlist:{pl_name}"
+                st.rerun()
 
     # Recent Searches Section
-    st.markdown("## 🔎 Recent Searches")
-    if not recent_searches:
-        st.caption("No recent searches yet.")
-    else:
+    st.markdown("### 🔎 Recent Searches")
+    if recent_searches:
         for s_idx, search_item in enumerate(recent_searches):
-            if st.button(f"🔎 {search_item}", key=f"recent_search_{s_idx}_{search_item}", use_container_width=True, type="secondary"):
+            if st.button(f"⏱️ {search_item}", key=f"sidebar_search_{s_idx}_{search_item}", use_container_width=True, type="secondary"):
                 st.session_state.search_input_val = search_item
+                st.session_state.active_nav = "Search"
                 with st.spinner(f"Searching for '{search_item}'..."):
                     results = utils.search_youtube(search_item)
                     st.session_state.search_results = results
@@ -297,16 +332,13 @@ with st.sidebar:
 
 
 # MAIN CONTENT AREA
-st.markdown('<p class="brand-title">PyTune</p>', unsafe_allow_html=True)
-st.markdown('<p class="brand-subtitle">Stream and play your favorite songs on your local laptop</p>', unsafe_allow_html=True)
-
-# 1. NOW PLAYING COMPONENT (Placed at the top when active)
+# 1. PERSISTENT PLAYER COMPONENT (Top Sticky Header when Active)
 if st.session_state.current_song:
     song = st.session_state.current_song
     video_id = song['id']
     
     with st.container(border=True):
-        col_player, col_info = st.columns([1.5, 1])
+        col_player, col_info = st.columns([1.6, 1])
         
         with col_player:
             current_idx = st.session_state.get('playlist_index', 0)
@@ -315,7 +347,7 @@ if st.session_state.current_song:
             has_next = next_idx < len(playlist)
             
             player_html = f"""
-            <div style="width: 100%; border-radius: 10px; overflow: hidden; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+            <div style="width: 100%; border-radius: 10px; overflow: hidden; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.7);">
                 <div id="yt-player"></div>
             </div>
             <script>
@@ -360,15 +392,14 @@ if st.session_state.current_song:
         with col_info:
             st.markdown("### 🎵 Now Playing")
             st.markdown(f"**Title:** {song['title']}")
-            st.markdown(f"**Channel:** {song['channel']} | **Duration:** {song['duration']}")
+            st.markdown(f"**Artist:** {song['channel']} | **Duration:** {song['duration']}")
             if 'views' in song:
                 st.caption(f"👀 {song['views']}")
             
             # Action buttons
             is_fav = utils.is_favorite(song['id'])
-            fav_label = "💔 Remove" if is_fav else "❤️ Favorite"
+            fav_label = "💔 Liked" if is_fav else "❤️ Like"
             
-            # Reset download state if we change song
             if st.session_state.get('download_song_id') != song['id']:
                 st.session_state.download_ready = False
                 st.session_state.download_failed = False
@@ -376,11 +407,11 @@ if st.session_state.current_song:
                 st.session_state.download_filename = ""
                 st.session_state.download_song_id = song['id']
                 
-            col_actions_1, col_actions_2, col_actions_3 = st.columns([1, 1, 1])
-            with col_actions_1:
+            col_act1, col_act2, col_act3 = st.columns([1, 1, 1])
+            with col_act1:
                 if st.button(fav_label, key="player_fav_btn", type="primary" if not is_fav else "secondary"):
                     toggle_fav_song(song)
-            with col_actions_2:
+            with col_act2:
                 if st.session_state.get('download_ready'):
                     st.download_button(
                         label="⬇️ Save MP3",
@@ -406,7 +437,7 @@ if st.session_state.current_song:
                                 st.session_state.download_failed = True
                                 st.toast("⚠️ Download failed. Please try another song.")
                                 st.rerun()
-            with col_actions_3:
+            with col_act3:
                 if st.button("❌ Close", key="player_close_btn", type="secondary"):
                     st.session_state.current_song = None
                     st.session_state.download_ready = False
@@ -415,95 +446,272 @@ if st.session_state.current_song:
                     st.session_state.download_filename = ""
                     st.rerun()
 
-# 2. SEARCH SYSTEM
-col_search, col_btn = st.columns([5, 1])
-
-# Check for updates from suggestion clicks
-search_query = col_search.text_input(
-    label="Search for a song, artist or playlist",
-    value=st.session_state.search_input_val,
-    placeholder="Type song name and press Enter...",
-    label_visibility="collapsed"
-)
-
-# Search button click
-search_clicked = col_btn.button("🔍 Search", type="primary", use_container_width=True)
-
-# If search query changed, or search clicked
-if search_clicked or (search_query and search_query != st.session_state.search_input_val):
-    st.session_state.search_input_val = search_query
-    
-    if search_query.strip():
-        with st.spinner("Searching online platforms... Please wait."):
-            results = utils.search_youtube(search_query)
-            if results:
-                st.session_state.search_results = results
-                utils.add_recent_search(search_query)
-            else:
-                st.session_state.search_results = []
-                st.warning("No songs found. Please check spelling or try another term.")
-    else:
-        st.session_state.search_results = []
-
-# Search Tips and Helper Box
-with st.expander("💡 Song Searching Help & Tips", expanded=False):
+# ROUTE 1: HOME VIEW
+if st.session_state.active_nav == "Home":
     st.markdown("""
-    * **Use Artist Name:** Search with the artist's name for best results (e.g., `Arijit Singh Kesariya`).
-    * **Autoplay Playlist:** When you play a song, the player will **automatically play the next song** from the search results or favorites list!
-    * **Specific Version:** Add terms like `Lyrical` or `Official Audio` for studio versions.
-    * **Indian Idol & Live Shows:** Include the show name for live performances (e.g., `Indian Idol Udit Main Yahan Hoon`).
-    """)
-
-# QUICK RECOMMENDATIONS (Show when there are no search results or search query is empty)
-if not st.session_state.search_input_val:
-    st.markdown("### 🔥 Popular Searches")
-    suggestions = ["Lofi Hip Hop beats", "Bollywood Romantic Hits 2026", "Arijit Singh playlist", "Chill Acoustic guitar", "Synthwave 80s", "Top English Pop Hits"]
+    <div class="spotify-hero">
+        <p class="spotify-hero-title">Welcome to PyTune</p>
+        <p class="spotify-hero-sub">Stream millions of songs and podcasts on your local machine with Spotify UI.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<p class="section-title">🔥 Popular Quick Mixes</p>', unsafe_allow_html=True)
+    
+    quick_suggestions = [
+        "Bollywood Romantic Hits", "Lofi Hip Hop Beats", "Arijit Singh Favorites",
+        "Chill Acoustic Guitar", "Synthwave 80s Retro", "Top English Pop Hits"
+    ]
     
     cols = st.columns(3)
-    for index, suggestion in enumerate(suggestions):
+    for index, sugg in enumerate(quick_suggestions):
         col_idx = index % 3
         with cols[col_idx]:
-            if st.button(f"🎵 {suggestion}", key=f"sugg_{index}", use_container_width=True):
-                st.session_state.search_input_val = suggestion
-                with st.spinner(f"Searching for '{suggestion}'..."):
-                    results = utils.search_youtube(suggestion)
+            if st.button(f"🎵 {sugg}", key=f"home_quick_{index}", use_container_width=True, type="secondary"):
+                st.session_state.search_input_val = sugg
+                st.session_state.active_nav = "Search"
+                with st.spinner(f"Loading '{sugg}'..."):
+                    results = utils.search_youtube(sugg)
                     st.session_state.search_results = results
                 st.rerun()
 
-# 3. DISPLAY SEARCH RESULTS
-if st.session_state.search_results:
-    st.markdown(f"### 🔍 Results for '{st.session_state.search_input_val}'")
+    # Recently Played section if history exists
+    if history:
+        st.markdown('<p class="section-title">🕒 Recently Played</p>', unsafe_allow_html=True)
+        h_cols = st.columns(4)
+        for h_idx, h_song in enumerate(history[:4]):
+            with h_cols[h_idx]:
+                with st.container(border=True):
+                    st.image(h_song['thumbnail'], use_container_width=True)
+                    disp_t = h_song['title'][:35] + "..." if len(h_song['title']) > 35 else h_song['title']
+                    st.markdown(f"**{disp_t}**")
+                    st.caption(f"👤 {h_song['channel']}")
+                    if st.button("▶️ Play", key=f"home_hist_play_{h_song['id']}_{h_idx}", type="primary", use_container_width=True):
+                        play_song(h_song, playlist=history, index=h_idx)
+
+# ROUTE 2: SEARCH VIEW
+elif st.session_state.active_nav == "Search":
+    st.markdown('<p class="section-title">🔍 Search Music</p>', unsafe_allow_html=True)
     
-    # Grid Layout: 3 columns
-    results_list = st.session_state.search_results
-    num_cols = 3
+    col_search, col_btn = st.columns([5, 1])
+    search_query = col_search.text_input(
+        label="Search input",
+        value=st.session_state.search_input_val,
+        placeholder="What do you want to listen to? (Artist, Song, Album)...",
+        label_visibility="collapsed"
+    )
+    search_clicked = col_btn.button("🔍 Search", type="primary", use_container_width=True)
     
-    for i in range(0, len(results_list), num_cols):
-        cols = st.columns(num_cols)
-        for j in range(num_cols):
-            if i + j < len(results_list):
-                song = results_list[i + j]
-                with cols[j]:
-                    with st.container(border=True):
-                        # Song Thumbnail
-                        st.image(song['thumbnail'], use_container_width=True)
-                        
-                        # Title truncated
-                        disp_title = song['title']
-                        if len(disp_title) > 55:
-                            disp_title = disp_title[:52] + "..."
+    # Genre & Quick Filter Pills
+    st.markdown("### Browse Categories")
+    genres = ["All", "Bollywood", "Lofi Beats", "Acoustic", "Marathi", "Pop Hits", "Indian Idol", "Synthwave"]
+    g_cols = st.columns(len(genres))
+    for g_idx, g_name in enumerate(genres):
+        with g_cols[g_idx]:
+            if st.button(g_name, key=f"genre_btn_{g_idx}", use_container_width=True, type="secondary"):
+                if g_name != "All":
+                    st.session_state.search_input_val = g_name
+                    with st.spinner(f"Loading category '{g_name}'..."):
+                        results = utils.search_youtube(g_name)
+                        st.session_state.search_results = results
+                    st.rerun()
+
+    if search_clicked or (search_query and search_query != st.session_state.search_input_val):
+        st.session_state.search_input_val = search_query
+        if search_query.strip():
+            with st.spinner(f"Searching for '{search_query}'..."):
+                results = utils.search_youtube(search_query)
+                if results:
+                    st.session_state.search_results = results
+                    utils.add_recent_search(search_query)
+                else:
+                    st.session_state.search_results = []
+                    st.warning("No songs found. Check spelling or try another search.")
+        else:
+            st.session_state.search_results = []
+
+    # Display Search Results in 4-Column Grid
+    if st.session_state.search_results:
+        st.markdown(f"### Results for '{st.session_state.search_input_val}'")
+        results_list = st.session_state.search_results
+        num_cols = 4
+        
+        for i in range(0, len(results_list), num_cols):
+            cols = st.columns(num_cols)
+            for j in range(num_cols):
+                if i + j < len(results_list):
+                    song_item = results_list[i + j]
+                    with cols[j]:
+                        with st.container(border=True):
+                            st.image(song_item['thumbnail'], use_container_width=True)
+                            disp_title = song_item['title'][:45] + "..." if len(song_item['title']) > 45 else song_item['title']
+                            st.markdown(f"##### **{disp_title}**")
+                            st.caption(f"👤 {song_item['channel']} | ⏱️ {song_item['duration']}")
                             
-                        st.markdown(f"##### **{disp_title}**")
-                        st.caption(f"👤 {song['channel']}")
-                        st.caption(f"⏱️ Duration: {song['duration']} | {song['views']}")
-                        
-                        # Card action buttons
-                        col_card_play, col_card_fav = st.columns([2, 1])
-                        with col_card_play:
-                            if st.button("▶️ Play", key=f"play_card_{song['id']}", type="primary", use_container_width=True):
-                                play_song(song, playlist=results_list, index=i+j)
-                        with col_card_fav:
-                            is_fav = utils.is_favorite(song['id'])
-                            heart_icon = "❤️" if is_fav else "🤍"
-                            if st.button(heart_icon, key=f"fav_card_{song['id']}", type="secondary", use_container_width=True, help="Toggle Favorite"):
-                                toggle_fav_song(song)
+                            col_p, col_f = st.columns([3, 1])
+                            with col_p:
+                                if st.button("▶️ Play", key=f"search_play_{song_item['id']}_{i+j}", type="primary", use_container_width=True):
+                                    play_song(song_item, playlist=results_list, index=i+j)
+                            with col_f:
+                                is_fav = utils.is_favorite(song_item['id'])
+                                icon = "❤️" if is_fav else "🤍"
+                                if st.button(icon, key=f"search_fav_{song_item['id']}_{i+j}", type="secondary", use_container_width=True):
+                                    toggle_fav_song(song_item)
+                                    
+                            # Add to playlist drop menu
+                            if user_playlists:
+                                with st.popover("➕ Add to Playlist", use_container_width=True):
+                                    for plk in user_playlists.keys():
+                                        if st.button(f"➕ {plk}", key=f"add_pl_{plk}_{song_item['id']}_{i+j}"):
+                                            utils.add_to_playlist(plk, song_item)
+                                            st.toast(f"Added to '{plk}'!")
+
+# ROUTE 3: YOUR LIBRARY VIEW
+elif st.session_state.active_nav == "Library":
+    st.markdown('<p class="section-title">📚 Your Library</p>', unsafe_allow_html=True)
+    
+    lib_tab1, lib_tab2 = st.tabs(["📜 Listening History", "📁 Custom Playlists"])
+    
+    with lib_tab1:
+        if not history:
+            st.info("No songs played yet. Explore and play music!")
+        else:
+            col_clear, _ = st.columns([1, 4])
+            with col_clear:
+                if st.button("🗑️ Clear History", type="secondary", use_container_width=True):
+                    data = utils.load_data()
+                    data['history'] = []
+                    utils.save_data(data)
+                    st.toast("History cleared!")
+                    st.rerun()
+            
+            st.write("")
+            for h_idx, h_item in enumerate(history):
+                c1, c2, c3, c4 = st.columns([1, 4, 2, 1])
+                with c1:
+                    st.image(h_item['thumbnail'], width=60)
+                with c2:
+                    st.markdown(f"**{h_item['title']}**")
+                    st.caption(f"👤 {h_item['channel']}")
+                with c3:
+                    st.caption(f"⏱️ {h_item['duration']}")
+                with c4:
+                    if st.button("▶️ Play", key=f"lib_hist_{h_item['id']}_{h_idx}", type="primary"):
+                        play_song(h_item, playlist=history, index=h_idx)
+                st.markdown("---")
+
+    with lib_tab2:
+        if not user_playlists:
+            st.info("No custom playlists yet. Use the sidebar to create one!")
+        else:
+            for pl_name, pl_songs in user_playlists.items():
+                with st.expander(f"📁 Playlist: {pl_name} ({len(pl_songs)} songs)", expanded=True):
+                    c_p, c_d = st.columns([4, 1])
+                    with c_p:
+                        if pl_songs and st.button(f"▶️ Play All '{pl_name}'", key=f"play_all_pl_{pl_name}", type="primary"):
+                            play_song(pl_songs[0], playlist=pl_songs, index=0)
+                    with c_d:
+                        if st.button("🗑️ Delete Playlist", key=f"del_pl_{pl_name}", type="secondary"):
+                            utils.delete_playlist(pl_name)
+                            st.toast(f"Deleted playlist '{pl_name}'")
+                            st.rerun()
+                            
+                    st.write("")
+                    if not pl_songs:
+                        st.caption("This playlist is empty. Add songs from the Search tab!")
+                    else:
+                        for s_idx, s_item in enumerate(pl_songs):
+                            sc1, sc2, sc3 = st.columns([4, 1, 1])
+                            with sc1:
+                                st.markdown(f"🎵 **{s_item['title']}** - *{s_item['channel']}*")
+                            with sc2:
+                                if st.button("▶️ Play", key=f"pl_song_play_{pl_name}_{s_item['id']}_{s_idx}", type="primary"):
+                                    play_song(s_item, playlist=pl_songs, index=s_idx)
+                            with sc3:
+                                if st.button("❌", key=f"pl_song_rem_{pl_name}_{s_item['id']}_{s_idx}"):
+                                    utils.remove_from_playlist(pl_name, s_item['id'])
+                                    st.toast("Removed from playlist!")
+                                    st.rerun()
+
+# ROUTE 4: LIKED SONGS VIEW
+elif st.session_state.active_nav == "Liked Songs":
+    st.markdown(f"""
+    <div class="spotify-hero" style="background: linear-gradient(180deg, #5038a0 0%, #121212 100%);">
+        <p class="spotify-hero-title">❤️ Liked Songs</p>
+        <p class="spotify-hero-sub">{len(favorites)} saved tracks in your personal collection</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if not favorites:
+        st.info("You haven't liked any songs yet! Click ❤️ on any track to add it here.")
+    else:
+        if st.button("▶️ Play All Liked Songs", type="primary", key="play_all_liked"):
+            play_song(favorites[0], playlist=favorites, index=0)
+            
+        st.write("")
+        st.markdown("---")
+        
+        for f_idx, fav_item in enumerate(favorites):
+            col_t, col_info, col_dur, col_play, col_del = st.columns([1, 5, 2, 1.5, 1])
+            with col_t:
+                st.image(fav_item['thumbnail'], width=55)
+            with col_info:
+                st.markdown(f"**{fav_item['title']}**")
+                st.caption(f"👤 {fav_item['channel']}")
+            with col_dur:
+                st.caption(f"⏱️ {fav_item['duration']}")
+            with col_play:
+                if st.button("▶️ Play", key=f"liked_play_{fav_item['id']}_{f_idx}", type="primary", use_container_width=True):
+                    play_song(fav_item, playlist=favorites, index=f_idx)
+            with col_del:
+                if st.button("💔", key=f"liked_del_{fav_item['id']}_{f_idx}", help="Remove from Liked Songs"):
+                    utils.toggle_favorite(fav_item)
+                    st.toast(f"Removed: {fav_item['title'][:20]}...")
+                    st.rerun()
+            st.markdown("---")
+
+# ROUTE 5: CUSTOM PLAYLIST VIEW (Direct Nav)
+elif st.session_state.active_nav.startswith("Playlist:"):
+    pl_name = st.session_state.active_nav.split("Playlist:")[1]
+    pl_songs = user_playlists.get(pl_name, [])
+    
+    st.markdown(f"""
+    <div class="spotify-hero" style="background: linear-gradient(180deg, #1e3264 0%, #121212 100%);">
+        <p class="spotify-hero-title">📁 {pl_name}</p>
+        <p class="spotify-hero-sub">{len(pl_songs)} songs in playlist</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if pl_songs:
+        col_p, col_d = st.columns([3, 1])
+        with col_p:
+            if st.button(f"▶️ Play Playlist", type="primary", key="pl_view_play_all"):
+                play_song(pl_songs[0], playlist=pl_songs, index=0)
+        with col_d:
+            if st.button("🗑️ Delete Playlist", type="secondary", key="pl_view_del"):
+                utils.delete_playlist(pl_name)
+                st.toast(f"Deleted playlist '{pl_name}'!")
+                st.session_state.active_nav = "Library"
+                st.rerun()
+                
+        st.write("")
+        st.markdown("---")
+        for s_idx, s_item in enumerate(pl_songs):
+            col_t, col_info, col_dur, col_play, col_del = st.columns([1, 5, 2, 1.5, 1])
+            with col_t:
+                st.image(s_item['thumbnail'], width=55)
+            with col_info:
+                st.markdown(f"**{s_item['title']}**")
+                st.caption(f"👤 {s_item['channel']}")
+            with col_dur:
+                st.caption(f"⏱️ {s_item['duration']}")
+            with col_play:
+                if st.button("▶️ Play", key=f"pl_view_play_{s_item['id']}_{s_idx}", type="primary", use_container_width=True):
+                    play_song(s_item, playlist=pl_songs, index=s_idx)
+            with col_del:
+                if st.button("❌", key=f"pl_view_rem_{s_item['id']}_{s_idx}", help="Remove song from playlist"):
+                    utils.remove_from_playlist(pl_name, s_item['id'])
+                    st.toast("Removed from playlist!")
+                    st.rerun()
+            st.markdown("---")
+    else:
+        st.info("This playlist is currently empty. Go to the Search tab to add songs!")

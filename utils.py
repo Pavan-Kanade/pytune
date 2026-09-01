@@ -111,8 +111,8 @@ def search_youtube(query, max_results=12):
 # Local Data Persistence Functions
 
 def load_data():
-    """Loads favorites, search history, and recent searches from a local JSON file."""
-    default_data = {"favorites": [], "history": [], "searches": []}
+    """Loads favorites, search history, playlists, and recent searches from a local JSON file."""
+    default_data = {"favorites": [], "history": [], "searches": [], "playlists": {}}
     if not os.path.exists(DATA_FILE):
         return default_data
         
@@ -125,6 +125,7 @@ def load_data():
             if 'favorites' not in data or not isinstance(data['favorites'], list): data['favorites'] = []
             if 'history' not in data or not isinstance(data['history'], list): data['history'] = []
             if 'searches' not in data or not isinstance(data['searches'], list): data['searches'] = []
+            if 'playlists' not in data or not isinstance(data['playlists'], dict): data['playlists'] = {}
             return data
     except Exception as e:
         print(f"Error loading local data: {e}")
@@ -260,3 +261,45 @@ def add_recent_search(query):
     # Keep only the last 5 items
     data['searches'] = data['searches'][:5]
     save_data(data)
+
+def create_playlist(name):
+    """Creates a new custom playlist."""
+    name = name.strip()
+    if not name:
+        return False
+    data = load_data()
+    if name not in data['playlists']:
+        data['playlists'][name] = []
+        save_data(data)
+        return True
+    return False
+
+def delete_playlist(name):
+    """Deletes a custom playlist."""
+    data = load_data()
+    if name in data['playlists']:
+        del data['playlists'][name]
+        save_data(data)
+        return True
+    return False
+
+def add_to_playlist(name, song):
+    """Adds a song to a custom playlist."""
+    if not isinstance(song, dict) or 'id' not in song:
+        return False
+    data = load_data()
+    if name in data['playlists']:
+        if not any(item.get('id') == song.get('id') for item in data['playlists'][name]):
+            data['playlists'][name].append(song)
+            save_data(data)
+            return True
+    return False
+
+def remove_from_playlist(name, song_id):
+    """Removes a song from a custom playlist."""
+    data = load_data()
+    if name in data['playlists']:
+        data['playlists'][name] = [item for item in data['playlists'][name] if item.get('id') != song_id]
+        save_data(data)
+        return True
+    return False
