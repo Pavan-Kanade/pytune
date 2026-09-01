@@ -549,6 +549,15 @@ if st.session_state.current_song:
                 """
                 st.markdown(android_dl_html, unsafe_allow_html=True)
                 st.caption("💡 Android Phone: Tap button above to save directly to phone Downloads!")
+            elif st.session_state.get('download_failed'):
+                st.warning("⚠️ Streamlit Cloud server block detected.")
+                stream_url = utils.get_audio_stream_url(song['url'])
+                if stream_url:
+                    st.link_button("🌐 Open Direct Stream Link (AppGeyser APK)", stream_url, type="primary", use_container_width=True)
+                    st.caption("💡 Long press on link above and choose 'Save link' or 'Download link'")
+                if st.button("🔄 Retry Download", key="retry_dl_btn", type="secondary", use_container_width=True):
+                    st.session_state.download_failed = False
+                    st.rerun()
             else:
                 if st.button("📥 Download MP3", key="player_dl_btn", type="secondary", use_container_width=True, help="Download track as MP3 file"):
                     with st.spinner("Preparing MP3..."):
@@ -562,7 +571,7 @@ if st.session_state.current_song:
                             st.rerun()
                         else:
                             st.session_state.download_failed = True
-                            st.toast("⚠️ Download failed. Please try another song.")
+                            st.toast("⚠️ Direct extraction failed. Use fallback link.")
                             st.rerun()
                             
             if st.button("❌ Stop & Close", key="player_close_btn", type="secondary", use_container_width=True):

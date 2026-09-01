@@ -199,7 +199,7 @@ def get_audio_bytes_via_ytdl(youtube_url):
     """
     Downloads the audio track using yt-dlp to a temporary file,
     reads its bytes, deletes the temp file, and returns (bytes, filename).
-    Compatible with both local laptop run and cloud deployment.
+    Compatible with both local laptop run and Streamlit Cloud deployment.
     """
     import yt_dlp
     import tempfile
@@ -211,16 +211,31 @@ def get_audio_bytes_via_ytdl(youtube_url):
     # We want a unique template name
     outtmpl = os.path.join(temp_dir, 'pytune_temp_%(id)s.%(ext)s')
     
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+    }
+    
+    # Cloud-optimized yt-dlp options (bypasses YouTube AWS/GCP cloud IP blocks)
     ydl_opts = {
-        'format': 'bestaudio',
+        'format': 'bestaudio/best',
         'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
-        'nocheckcertificate': True
+        'nocheckcertificate': True,
+        'noplaylist': True,
+        'http_headers': headers,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web', 'ios'],
+                'skip': ['hls', 'dash']
+            }
+        }
     }
     
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(youtube_url, download=True)
             filename = ydl.prepare_filename(info)
             
@@ -234,18 +249,39 @@ def get_audio_bytes_via_ytdl(youtube_url):
             except Exception:
                 pass
                 
-            # Get original extension and title
-            ext = info.get('ext', 'webm')
             title = info.get('title', 'audio')
-            # Sanitize title for filename
             clean_title = "".join([c for c in title if c.isalnum() or c in (' ', '_', '-')]).strip()
             if not clean_title:
                 clean_title = "audio"
             download_filename = f"{clean_title}.mp3"
             
             return data, download_filename
-        except Exception as e:
-            print(f"Error downloading audio bytes: {e}")
+    except Exception as e:
+        print(f"Primary download failed: {e}. Trying fallback options...")
+        try:
+            fallback_opts = {
+                'format': 'ba/b',
+                'outtmpl': outtmpl,
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'noplaylist': True
+            }
+            with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                info = ydl.extract_info(youtube_url, download=True)
+                filename = ydl.prepare_filename(info)
+                with open(filename, 'rb') as f:
+                    data = f.read()
+                try:
+                    os.remove(filename)
+                except Exception:
+                    pass
+                title = info.get('title', 'audio')
+                clean_title = "".join([c for c in title if c.isalnum() or c in (' ', '_', '-')]).strip()
+                if not clean_title: clean_title = "audio"
+                return data, f"{clean_title}.mp3"
+        except Exception as e2:
+            print(f"Fallback download error: {e2}")
             return None, None
 
 def add_recent_search(query):
