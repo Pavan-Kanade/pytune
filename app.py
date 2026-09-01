@@ -134,8 +134,8 @@ div[data-testid="stTextInput"] input {
     transition: all 0.3s ease !important;
 }
 div[data-testid="stTextInput"] input:focus {
-    border-color: #ffffff !important;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2) !important;
+    border-color: #1DB954 !important;
+    box-shadow: 0 0 12px rgba(29, 185, 84, 0.3) !important;
 }
 
 /* Logo & Headers */
@@ -332,71 +332,47 @@ with st.sidebar:
 
 
 # MAIN CONTENT AREA
-# 1. PERSISTENT PLAYER COMPONENT (Top Sticky Header when Active)
+
+# 1. PROMINENT HEADER SEARCH BAR (Always accessible at top)
+col_top_search, col_top_btn = st.columns([5, 1])
+top_query = col_top_search.text_input(
+    label="Header Search Bar",
+    value=st.session_state.search_input_val if st.session_state.active_nav == "Search" else "",
+    placeholder="🔍 Search for songs, artists, playlists, genres...",
+    key="header_top_search_input",
+    label_visibility="collapsed"
+)
+top_btn_clicked = col_top_btn.button("🔍 Search", key="btn_top_search", type="primary", use_container_width=True)
+
+if top_btn_clicked or (top_query and top_query != st.session_state.search_input_val and st.session_state.active_nav != "Search"):
+    if top_query.strip():
+        st.session_state.search_input_val = top_query
+        st.session_state.active_nav = "Search"
+        with st.spinner(f"Searching for '{top_query}'..."):
+            results = utils.search_youtube(top_query)
+            st.session_state.search_results = results
+            utils.add_recent_search(top_query)
+        st.rerun()
+
+st.write("")
+
+# 2. AUDIO-ONLY MP3 PLAYER COMPONENT (Top Sticky Container when Active)
 if st.session_state.current_song:
     song = st.session_state.current_song
     video_id = song['id']
     
     with st.container(border=True):
-        col_player, col_info = st.columns([1.6, 1])
+        col_thumb, col_info, col_controls = st.columns([1, 2.5, 1.5])
         
-        with col_player:
-            current_idx = st.session_state.get('playlist_index', 0)
-            playlist = st.session_state.get('playlist', [])
-            next_idx = current_idx + 1
-            has_next = next_idx < len(playlist)
-            
-            player_html = f"""
-            <div style="width: 100%; border-radius: 10px; overflow: hidden; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.7);">
-                <div id="yt-player"></div>
-            </div>
-            <script>
-                var tag = document.createElement('script');
-                tag.src = "https://www.youtube.com/iframe_api";
-                var firstScriptTag = document.getElementsByTagName('script')[0];
-                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-                var player;
-                function onYouTubeIframeAPIReady() {{
-                    player = new YT.Player('yt-player', {{
-                        height: '210',
-                        width: '100%',
-                        videoId: '{video_id}',
-                        playerVars: {{
-                            'autoplay': 1,
-                            'playsinline': 1,
-                            'rel': 0,
-                            'modestbranding': 1
-                        }},
-                        events: {{
-                            'onStateChange': onPlayerStateChange
-                        }}
-                    }});
-                }}
-
-                function onPlayerStateChange(event) {{
-                    if (event.data === 0 && {str(has_next).lower()}) {{
-                        try {{
-                            var parentUrl = new URL(window.parent.location.href);
-                            parentUrl.searchParams.set("play_index", "{next_idx}");
-                            window.parent.location.href = parentUrl.href;
-                        }} catch(e) {{
-                            console.error("Autoplay navigation error:", e);
-                        }}
-                    }}
-                }}
-            </script>
-            """
-            st.components.v1.html(player_html, height=220)
+        with col_thumb:
+            st.image(song['thumbnail'], use_container_width=True)
             
         with col_info:
-            st.markdown("### 🎵 Now Playing")
-            st.markdown(f"**Title:** {song['title']}")
-            st.markdown(f"**Artist:** {song['channel']} | **Duration:** {song['duration']}")
-            if 'views' in song:
-                st.caption(f"👀 {song['views']}")
+            st.markdown('<span style="background-color: #1DB954; color: #000; font-weight: 700; padding: 4px 12px; border-radius: 500px; font-size: 0.75rem;">🎧 PLAYING MP3 AUDIO</span>', unsafe_allow_html=True)
+            st.markdown(f"### **{song['title']}**")
+            st.markdown(f"👤 **{song['channel']}** | ⏱️ {song['duration']} | 👀 {song.get('views', '')}")
             
-            # Action buttons
+        with col_controls:
             is_fav = utils.is_favorite(song['id'])
             fav_label = "💔 Liked" if is_fav else "❤️ Like"
             
@@ -407,51 +383,97 @@ if st.session_state.current_song:
                 st.session_state.download_filename = ""
                 st.session_state.download_song_id = song['id']
                 
-            col_act1, col_act2, col_act3 = st.columns([1, 1, 1])
-            with col_act1:
-                if st.button(fav_label, key="player_fav_btn", type="primary" if not is_fav else "secondary"):
-                    toggle_fav_song(song)
-            with col_act2:
-                if st.session_state.get('download_ready'):
-                    st.download_button(
-                        label="⬇️ Save MP3",
-                        data=st.session_state.download_bytes,
-                        file_name=st.session_state.download_filename,
-                        mime="audio/mp3",
-                        type="primary",
-                        use_container_width=True,
-                        key="browser_dl_btn"
-                    )
-                else:
-                    if st.button("📥 Download MP3", key="player_dl_btn", type="secondary", help="Prepare song as MP3 for download"):
-                        with st.spinner("Preparing MP3 download..."):
-                            data, filename = utils.get_audio_bytes_via_ytdl(song['url'])
-                            if data:
-                                st.session_state.download_bytes = data
-                                st.session_state.download_filename = filename
-                                st.session_state.download_ready = True
-                                st.session_state.download_failed = False
-                                st.toast("✅ MP3 ready! Click Save MP3 below.")
-                                st.rerun()
-                            else:
-                                st.session_state.download_failed = True
-                                st.toast("⚠️ Download failed. Please try another song.")
-                                st.rerun()
-            with col_act3:
-                if st.button("❌ Close", key="player_close_btn", type="secondary"):
-                    st.session_state.current_song = None
-                    st.session_state.download_ready = False
-                    st.session_state.download_failed = False
-                    st.session_state.download_bytes = None
-                    st.session_state.download_filename = ""
-                    st.rerun()
+            if st.button(fav_label, key="player_fav_btn", type="primary" if not is_fav else "secondary", use_container_width=True):
+                toggle_fav_song(song)
+                
+            if st.session_state.get('download_ready'):
+                st.download_button(
+                    label="⬇️ Save MP3 File",
+                    data=st.session_state.download_bytes,
+                    file_name=st.session_state.download_filename,
+                    mime="audio/mp3",
+                    type="primary",
+                    use_container_width=True,
+                    key="browser_dl_btn"
+                )
+            else:
+                if st.button("📥 Download MP3", key="player_dl_btn", type="secondary", use_container_width=True, help="Download track as MP3 file"):
+                    with st.spinner("Preparing MP3..."):
+                        data, filename = utils.get_audio_bytes_via_ytdl(song['url'])
+                        if data:
+                            st.session_state.download_bytes = data
+                            st.session_state.download_filename = filename
+                            st.session_state.download_ready = True
+                            st.session_state.download_failed = False
+                            st.toast("✅ MP3 ready! Click Save MP3 File below.")
+                            st.rerun()
+                        else:
+                            st.session_state.download_failed = True
+                            st.toast("⚠️ Download failed. Please try another song.")
+                            st.rerun()
+                            
+            if st.button("❌ Stop & Close", key="player_close_btn", type="secondary", use_container_width=True):
+                st.session_state.current_song = None
+                st.session_state.download_ready = False
+                st.session_state.download_failed = False
+                st.session_state.download_bytes = None
+                st.session_state.download_filename = ""
+                st.rerun()
+
+        # Hidden background audio engine (no video iframe box visible on UI)
+        current_idx = st.session_state.get('playlist_index', 0)
+        playlist = st.session_state.get('playlist', [])
+        next_idx = current_idx + 1
+        has_next = next_idx < len(playlist)
+        
+        audio_engine_html = f"""
+        <div style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
+            <div id="yt-player"></div>
+        </div>
+        <script>
+            var tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            var firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+            var player;
+            function onYouTubeIframeAPIReady() {{
+                player = new YT.Player('yt-player', {{
+                    height: '1',
+                    width: '1',
+                    videoId: '{video_id}',
+                    playerVars: {{
+                        'autoplay': 1,
+                        'playsinline': 1,
+                        'controls': 0
+                    }},
+                    events: {{
+                        'onStateChange': onPlayerStateChange
+                    }}
+                }});
+            }}
+
+            function onPlayerStateChange(event) {{
+                if (event.data === 0 && {str(has_next).lower()}) {{
+                    try {{
+                        var parentUrl = new URL(window.parent.location.href);
+                        parentUrl.searchParams.set("play_index", "{next_idx}");
+                        window.parent.location.href = parentUrl.href;
+                    }} catch(e) {{
+                        console.error("Autoplay error:", e);
+                    }}
+                }}
+            }}
+        </script>
+        """
+        st.components.v1.html(audio_engine_html, height=1)
 
 # ROUTE 1: HOME VIEW
 if st.session_state.active_nav == "Home":
     st.markdown("""
     <div class="spotify-hero">
         <p class="spotify-hero-title">Welcome to PyTune</p>
-        <p class="spotify-hero-sub">Stream millions of songs and podcasts on your local machine with Spotify UI.</p>
+        <p class="spotify-hero-sub">Stream millions of MP3 songs and podcasts on your local machine with Spotify UI.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -485,21 +507,12 @@ if st.session_state.active_nav == "Home":
                     disp_t = h_song['title'][:35] + "..." if len(h_song['title']) > 35 else h_song['title']
                     st.markdown(f"**{disp_t}**")
                     st.caption(f"👤 {h_song['channel']}")
-                    if st.button("▶️ Play", key=f"home_hist_play_{h_song['id']}_{h_idx}", type="primary", use_container_width=True):
+                    if st.button("▶️ Play MP3", key=f"home_hist_play_{h_song['id']}_{h_idx}", type="primary", use_container_width=True):
                         play_song(h_song, playlist=history, index=h_idx)
 
 # ROUTE 2: SEARCH VIEW
 elif st.session_state.active_nav == "Search":
     st.markdown('<p class="section-title">🔍 Search Music</p>', unsafe_allow_html=True)
-    
-    col_search, col_btn = st.columns([5, 1])
-    search_query = col_search.text_input(
-        label="Search input",
-        value=st.session_state.search_input_val,
-        placeholder="What do you want to listen to? (Artist, Song, Album)...",
-        label_visibility="collapsed"
-    )
-    search_clicked = col_btn.button("🔍 Search", type="primary", use_container_width=True)
     
     # Genre & Quick Filter Pills
     st.markdown("### Browse Categories")
@@ -514,20 +527,6 @@ elif st.session_state.active_nav == "Search":
                         results = utils.search_youtube(g_name)
                         st.session_state.search_results = results
                     st.rerun()
-
-    if search_clicked or (search_query and search_query != st.session_state.search_input_val):
-        st.session_state.search_input_val = search_query
-        if search_query.strip():
-            with st.spinner(f"Searching for '{search_query}'..."):
-                results = utils.search_youtube(search_query)
-                if results:
-                    st.session_state.search_results = results
-                    utils.add_recent_search(search_query)
-                else:
-                    st.session_state.search_results = []
-                    st.warning("No songs found. Check spelling or try another search.")
-        else:
-            st.session_state.search_results = []
 
     # Display Search Results in 4-Column Grid
     if st.session_state.search_results:
@@ -549,7 +548,7 @@ elif st.session_state.active_nav == "Search":
                             
                             col_p, col_f = st.columns([3, 1])
                             with col_p:
-                                if st.button("▶️ Play", key=f"search_play_{song_item['id']}_{i+j}", type="primary", use_container_width=True):
+                                if st.button("▶️ Play MP3", key=f"search_play_{song_item['id']}_{i+j}", type="primary", use_container_width=True):
                                     play_song(song_item, playlist=results_list, index=i+j)
                             with col_f:
                                 is_fav = utils.is_favorite(song_item['id'])
@@ -595,7 +594,7 @@ elif st.session_state.active_nav == "Library":
                 with c3:
                     st.caption(f"⏱️ {h_item['duration']}")
                 with c4:
-                    if st.button("▶️ Play", key=f"lib_hist_{h_item['id']}_{h_idx}", type="primary"):
+                    if st.button("▶️ Play MP3", key=f"lib_hist_{h_item['id']}_{h_idx}", type="primary"):
                         play_song(h_item, playlist=history, index=h_idx)
                 st.markdown("---")
 
@@ -624,7 +623,7 @@ elif st.session_state.active_nav == "Library":
                             with sc1:
                                 st.markdown(f"🎵 **{s_item['title']}** - *{s_item['channel']}*")
                             with sc2:
-                                if st.button("▶️ Play", key=f"pl_song_play_{pl_name}_{s_item['id']}_{s_idx}", type="primary"):
+                                if st.button("▶️ Play MP3", key=f"pl_song_play_{pl_name}_{s_item['id']}_{s_idx}", type="primary"):
                                     play_song(s_item, playlist=pl_songs, index=s_idx)
                             with sc3:
                                 if st.button("❌", key=f"pl_song_rem_{pl_name}_{s_item['id']}_{s_idx}"):
@@ -660,7 +659,7 @@ elif st.session_state.active_nav == "Liked Songs":
             with col_dur:
                 st.caption(f"⏱️ {fav_item['duration']}")
             with col_play:
-                if st.button("▶️ Play", key=f"liked_play_{fav_item['id']}_{f_idx}", type="primary", use_container_width=True):
+                if st.button("▶️ Play MP3", key=f"liked_play_{fav_item['id']}_{f_idx}", type="primary", use_container_width=True):
                     play_song(fav_item, playlist=favorites, index=f_idx)
             with col_del:
                 if st.button("💔", key=f"liked_del_{fav_item['id']}_{f_idx}", help="Remove from Liked Songs"):
@@ -705,7 +704,7 @@ elif st.session_state.active_nav.startswith("Playlist:"):
             with col_dur:
                 st.caption(f"⏱️ {s_item['duration']}")
             with col_play:
-                if st.button("▶️ Play", key=f"pl_view_play_{s_item['id']}_{s_idx}", type="primary", use_container_width=True):
+                if st.button("▶️ Play MP3", key=f"pl_view_play_{s_item['id']}_{s_idx}", type="primary", use_container_width=True):
                     play_song(s_item, playlist=pl_songs, index=s_idx)
             with col_del:
                 if st.button("❌", key=f"pl_view_rem_{s_item['id']}_{s_idx}", help="Remove song from playlist"):
