@@ -356,23 +356,162 @@ if top_btn_clicked or (top_query and top_query != st.session_state.search_input_
 
 st.write("")
 
-# 2. AUDIO-ONLY MP3 PLAYER COMPONENT (Top Sticky Container when Active)
+# 2. INTERACTIVE SPOTIFY MP3 AUDIO PLAYER COMPONENT (Play, Pause, Seek/Move, Download)
 if st.session_state.current_song:
     song = st.session_state.current_song
     video_id = song['id']
     
+    current_idx = st.session_state.get('playlist_index', 0)
+    playlist = st.session_state.get('playlist', [])
+    next_idx = current_idx + 1
+    has_next = next_idx < len(playlist)
+    
     with st.container(border=True):
-        col_thumb, col_info, col_controls = st.columns([1, 2.5, 1.5])
+        col_player_widget, col_side_actions = st.columns([3.2, 1.2])
         
-        with col_thumb:
-            st.image(song['thumbnail'], use_container_width=True)
+        with col_player_widget:
+            player_widget_html = f"""
+            <div style="background: #181818; border-radius: 10px; padding: 14px; color: #fff; font-family: 'Montserrat', sans-serif;">
+                <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 10px;">
+                    <img src="{song['thumbnail']}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+                    <div style="flex-grow: 1; overflow: hidden;">
+                        <span style="background-color: #1DB954; color: #000; font-weight: 800; padding: 2px 8px; border-radius: 500px; font-size: 0.68rem;">🎧 SPOTIFY AUDIO PLAYER</span>
+                        <div style="font-weight: 700; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; margin-top: 3px;">{html.escape(song['title'])}</div>
+                        <div style="color: #b3b3b3; font-size: 0.82rem;">{html.escape(song['channel'])}</div>
+                    </div>
+                </div>
+
+                <!-- Progress / Seek Bar (Move Track) -->
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <span id="time-current" style="font-size: 0.8rem; color: #b3b3b3; font-family: monospace; min-width: 35px;">0:00</span>
+                    <input type="range" id="seek-bar" min="0" max="100" value="0" style="flex-grow: 1; accent-color: #1DB954; cursor: pointer; height: 5px;">
+                    <span id="time-duration" style="font-size: 0.8rem; color: #b3b3b3; font-family: monospace; min-width: 35px;">0:00</span>
+                </div>
+
+                <!-- Playback Controls (Play, Pause, Move -10s, Move +10s) -->
+                <div style="display: flex; align-items: center; justify-content: center; gap: 14px;">
+                    <button id="btn-rewind" title="Move back 10s" style="background: #282828; border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 0.9rem; transition: transform 0.1s;">⏮️</button>
+                    <button id="btn-playpause" title="Play/Pause" style="background: #1DB954; border: none; color: #000; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: transform 0.1s;">⏸️</button>
+                    <button id="btn-forward" title="Move forward 10s" style="background: #282828; border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 0.9rem; transition: transform 0.1s;">⏭️</button>
+                </div>
+
+                <!-- Hidden YouTube API Audio Engine -->
+                <div style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
+                    <div id="yt-player"></div>
+                </div>
+            </div>
+
+            <script>
+                var tag = document.createElement('script');
+                tag.src = "https://www.youtube.com/iframe_api";
+                var firstScriptTag = document.getElementsByTagName('script')[0];
+                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+                var player;
+                var isPlaying = true;
+                var seekBar = document.getElementById('seek-bar');
+                var playPauseBtn = document.getElementById('btn-playpause');
+                var timeCurrent = document.getElementById('time-current');
+                var timeDuration = document.getElementById('time-duration');
+                var isUserSeeking = false;
+
+                function onYouTubeIframeAPIReady() {{
+                    player = new YT.Player('yt-player', {{
+                        height: '1',
+                        width: '1',
+                        videoId: '{video_id}',
+                        playerVars: {{
+                            'autoplay': 1,
+                            'playsinline': 1,
+                            'controls': 0
+                        }},
+                        events: {{
+                            'onReady': onPlayerReady,
+                            'onStateChange': onPlayerStateChange
+                        }}
+                    }});
+                }}
+
+                function formatTime(sec) {{
+                    if (isNaN(sec) || sec < 0) return "0:00";
+                    var m = Math.floor(sec / 60);
+                    var s = Math.floor(sec % 60);
+                    if (s < 10) s = "0" + s;
+                    return m + ":" + s;
+                }}
+
+                function onPlayerReady(event) {{
+                    setInterval(function() {{
+                        if (player && player.getCurrentTime && !isUserSeeking) {{
+                            var curr = player.getCurrentTime();
+                            var dur = player.getDuration();
+                            if (dur > 0) {{
+                                seekBar.value = (curr / dur) * 100;
+                                timeCurrent.innerText = formatTime(curr);
+                                timeDuration.innerText = formatTime(dur);
+                            }}
+                        }}
+                    }}, 400);
+                }}
+
+                function onPlayerStateChange(event) {{
+                    if (event.data === 1) {{
+                        isPlaying = true;
+                        playPauseBtn.innerText = "⏸️";
+                    }} else if (event.data === 2) {{
+                        isPlaying = false;
+                        playPauseBtn.innerText = "▶️";
+                    }} else if (event.data === 0 && {str(has_next).lower()}) {{
+                        try {{
+                            var parentUrl = new URL(window.parent.location.href);
+                            parentUrl.searchParams.set("play_index", "{next_idx}");
+                            window.parent.location.href = parentUrl.href;
+                        }} catch(e) {{
+                            console.error(e);
+                        }}
+                    }}
+                }}
+
+                playPauseBtn.addEventListener('click', function() {{
+                    if (!player) return;
+                    if (isPlaying) {{
+                        player.pauseVideo();
+                    }} else {{
+                        player.playVideo();
+                    }}
+                }});
+
+                document.getElementById('btn-rewind').addEventListener('click', function() {{
+                    if (!player) return;
+                    var curr = player.getCurrentTime();
+                    player.seekTo(Math.max(0, curr - 10), true);
+                }});
+
+                document.getElementById('btn-forward').addEventListener('click', function() {{
+                    if (!player) return;
+                    var curr = player.getCurrentTime();
+                    var dur = player.getDuration();
+                    player.seekTo(Math.min(dur, curr + 10), true);
+                }});
+
+                seekBar.addEventListener('mousedown', function() {{ isUserSeeking = true; }});
+                seekBar.addEventListener('touchstart', function() {{ isUserSeeking = true; }});
+
+                seekBar.addEventListener('change', function() {{
+                    if (!player) return;
+                    var dur = player.getDuration();
+                    if (dur > 0) {{
+                        var seekToSec = (seekBar.value / 100) * dur;
+                        player.seekTo(seekToSec, true);
+                    }}
+                    isUserSeeking = false;
+                }});
+            </script>
+            """
+            st.components.v1.html(player_widget_html, height=195)
             
-        with col_info:
-            st.markdown('<span style="background-color: #1DB954; color: #000; font-weight: 700; padding: 4px 12px; border-radius: 500px; font-size: 0.75rem;">🎧 PLAYING MP3 AUDIO</span>', unsafe_allow_html=True)
-            st.markdown(f"### **{song['title']}**")
-            st.markdown(f"👤 **{song['channel']}** | ⏱️ {song['duration']} | 👀 {song.get('views', '')}")
-            
-        with col_controls:
+        with col_side_actions:
+            st.markdown("##### Options")
             is_fav = utils.is_favorite(song['id'])
             fav_label = "💔 Liked" if is_fav else "❤️ Like"
             
@@ -419,54 +558,6 @@ if st.session_state.current_song:
                 st.session_state.download_bytes = None
                 st.session_state.download_filename = ""
                 st.rerun()
-
-        # Hidden background audio engine (no video iframe box visible on UI)
-        current_idx = st.session_state.get('playlist_index', 0)
-        playlist = st.session_state.get('playlist', [])
-        next_idx = current_idx + 1
-        has_next = next_idx < len(playlist)
-        
-        audio_engine_html = f"""
-        <div style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
-            <div id="yt-player"></div>
-        </div>
-        <script>
-            var tag = document.createElement('script');
-            tag.src = "https://www.youtube.com/iframe_api";
-            var firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-            var player;
-            function onYouTubeIframeAPIReady() {{
-                player = new YT.Player('yt-player', {{
-                    height: '1',
-                    width: '1',
-                    videoId: '{video_id}',
-                    playerVars: {{
-                        'autoplay': 1,
-                        'playsinline': 1,
-                        'controls': 0
-                    }},
-                    events: {{
-                        'onStateChange': onPlayerStateChange
-                    }}
-                }});
-            }}
-
-            function onPlayerStateChange(event) {{
-                if (event.data === 0 && {str(has_next).lower()}) {{
-                    try {{
-                        var parentUrl = new URL(window.parent.location.href);
-                        parentUrl.searchParams.set("play_index", "{next_idx}");
-                        window.parent.location.href = parentUrl.href;
-                    }} catch(e) {{
-                        console.error("Autoplay error:", e);
-                    }}
-                }}
-            }}
-        </script>
-        """
-        st.components.v1.html(audio_engine_html, height=1)
 
 # ROUTE 1: HOME VIEW
 if st.session_state.active_nav == "Home":
