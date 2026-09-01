@@ -357,7 +357,7 @@ if top_btn_clicked or (top_query and top_query != st.session_state.search_input_
 
 st.write("")
 
-# 2. INTERACTIVE SPOTIFY MP3 AUDIO PLAYER COMPONENT (Play, Pause, Seek/Move, Android & Desktop Download)
+# 2. INTERACTIVE SPOTIFY MP3 AUDIO PLAYER COMPONENT (Mobile & Desktop Compatible)
 if st.session_state.current_song:
     song = st.session_state.current_song
     video_id = song['id']
@@ -368,21 +368,30 @@ if st.session_state.current_song:
     has_next = next_idx < len(playlist)
     
     with st.container(border=True):
+        # Top Audio Stream Player for Mobile & Desktop
+        audio_stream_url = utils.get_audio_stream_url(song['url'])
+        
+        col_thumb, col_info = st.columns([1, 3])
+        with col_thumb:
+            st.image(song['thumbnail'], width=100)
+        with col_info:
+            st.markdown('<span style="background-color: #1DB954; color: #000; font-weight: 800; padding: 2px 10px; border-radius: 500px; font-size: 0.72rem;">🎧 MP3 AUDIO PLAYER</span>', unsafe_allow_html=True)
+            st.markdown(f"### **{song['title']}**")
+            st.markdown(f"👤 **{song['channel']}** | ⏱️ {song['duration']}")
+            
+        if audio_stream_url:
+            st.audio(audio_stream_url, format="audio/mp3", autoplay=True)
+            st.caption("📱 Mobile / Android User: Tap ▶️ on player above to start audio!")
+        else:
+            st.info("💡 Tap play on player widget below")
+
+        st.markdown("---")
         col_player_widget, col_side_actions = st.columns([3.2, 1.2])
         
         with col_player_widget:
             player_widget_html = f"""
             <div style="background: #181818; border-radius: 10px; padding: 14px; color: #fff; font-family: 'Montserrat', sans-serif;">
-                <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 10px;">
-                    <img src="{song['thumbnail']}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
-                    <div style="flex-grow: 1; overflow: hidden;">
-                        <span style="background-color: #1DB954; color: #000; font-weight: 800; padding: 2px 8px; border-radius: 500px; font-size: 0.68rem;">🎧 SPOTIFY AUDIO PLAYER</span>
-                        <div style="font-weight: 700; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; margin-top: 3px;">{html.escape(song['title'])}</div>
-                        <div style="color: #b3b3b3; font-size: 0.82rem;">{html.escape(song['channel'])}</div>
-                    </div>
-                </div>
-
-                <!-- Progress / Seek Bar (Move Track) -->
+                <!-- Seek Bar (Move Track) -->
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                     <span id="time-current" style="font-size: 0.8rem; color: #b3b3b3; font-family: monospace; min-width: 35px;">0:00</span>
                     <input type="range" id="seek-bar" min="0" max="100" value="0" style="flex-grow: 1; accent-color: #1DB954; cursor: pointer; height: 5px;">
@@ -396,7 +405,7 @@ if st.session_state.current_song:
                     <button id="btn-forward" title="Move forward 10s" style="background: #282828; border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 0.9rem;">⏭️</button>
                 </div>
 
-                <!-- Hidden YouTube API Audio Engine -->
+                <!-- Hidden YouTube API Engine -->
                 <div style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
                     <div id="yt-player"></div>
                 </div>
@@ -509,7 +518,7 @@ if st.session_state.current_song:
                 }});
             </script>
             """
-            st.components.v1.html(player_widget_html, height=195)
+            st.components.v1.html(player_widget_html, height=135)
             
         with col_side_actions:
             st.markdown("##### Options")
