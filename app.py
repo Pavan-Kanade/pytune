@@ -4,6 +4,7 @@ import utils
 importlib.reload(utils)
 import os
 import html
+import base64
 
 # Page Configuration
 st.set_page_config(
@@ -356,7 +357,7 @@ if top_btn_clicked or (top_query and top_query != st.session_state.search_input_
 
 st.write("")
 
-# 2. INTERACTIVE SPOTIFY MP3 AUDIO PLAYER COMPONENT (Play, Pause, Seek/Move, Download)
+# 2. INTERACTIVE SPOTIFY MP3 AUDIO PLAYER COMPONENT (Play, Pause, Seek/Move, Android & Desktop Download)
 if st.session_state.current_song:
     song = st.session_state.current_song
     video_id = song['id']
@@ -390,9 +391,9 @@ if st.session_state.current_song:
 
                 <!-- Playback Controls (Play, Pause, Move -10s, Move +10s) -->
                 <div style="display: flex; align-items: center; justify-content: center; gap: 14px;">
-                    <button id="btn-rewind" title="Move back 10s" style="background: #282828; border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 0.9rem; transition: transform 0.1s;">⏮️</button>
-                    <button id="btn-playpause" title="Play/Pause" style="background: #1DB954; border: none; color: #000; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: transform 0.1s;">⏸️</button>
-                    <button id="btn-forward" title="Move forward 10s" style="background: #282828; border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 0.9rem; transition: transform 0.1s;">⏭️</button>
+                    <button id="btn-rewind" title="Move back 10s" style="background: #282828; border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 0.9rem;">⏮️</button>
+                    <button id="btn-playpause" title="Play/Pause" style="background: #1DB954; border: none; color: #000; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; justify-content: center;">⏸️</button>
+                    <button id="btn-forward" title="Move forward 10s" style="background: #282828; border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 0.9rem;">⏭️</button>
                 </div>
 
                 <!-- Hidden YouTube API Audio Engine -->
@@ -526,15 +527,28 @@ if st.session_state.current_song:
                 toggle_fav_song(song)
                 
             if st.session_state.get('download_ready'):
+                # Standard Download Button (Desktop & general)
                 st.download_button(
-                    label="⬇️ Save MP3 File",
+                    label="⬇️ Save MP3 (Desktop)",
                     data=st.session_state.download_bytes,
                     file_name=st.session_state.download_filename,
-                    mime="audio/mp3",
+                    mime="audio/mpeg",
                     type="primary",
                     use_container_width=True,
                     key="browser_dl_btn"
                 )
+                
+                # Android Mobile Direct Download Link (1-tap Mobile Save for Android Chrome)
+                b64_str = base64.b64encode(st.session_state.download_bytes).decode('utf-8')
+                dl_fname = st.session_state.download_filename
+                
+                android_dl_html = f"""
+                <a href="data:audio/mpeg;base64,{b64_str}" download="{html.escape(dl_fname)}" target="_blank" style="display: block; width: 100%; text-align: center; background-color: #1DB954; color: #000000; font-weight: 800; padding: 10px 12px; border-radius: 500px; text-decoration: none; font-size: 0.82rem; margin-top: 6px; box-shadow: 0 4px 12px rgba(29,185,84,0.4);">
+                    📱 SAVE TO PHONE (Android)
+                </a>
+                """
+                st.markdown(android_dl_html, unsafe_allow_html=True)
+                st.caption("💡 Android Phone: Tap button above to save directly to phone Downloads!")
             else:
                 if st.button("📥 Download MP3", key="player_dl_btn", type="secondary", use_container_width=True, help="Download track as MP3 file"):
                     with st.spinner("Preparing MP3..."):
@@ -544,7 +558,7 @@ if st.session_state.current_song:
                             st.session_state.download_filename = filename
                             st.session_state.download_ready = True
                             st.session_state.download_failed = False
-                            st.toast("✅ MP3 ready! Click Save MP3 File below.")
+                            st.toast("✅ MP3 ready! Click Save below.")
                             st.rerun()
                         else:
                             st.session_state.download_failed = True
