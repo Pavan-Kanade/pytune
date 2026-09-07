@@ -68,23 +68,46 @@ async def api_stream(url: str = Query(...)):
 @app.get("/api/download")
 async def api_download(url: str = Query(...)):
     """Downloads audio track and streams MP3 file directly to browser."""
+    # 1. Try local disk byte extraction
     data, filename = utils.get_audio_bytes_via_ytdl(url)
-    if not data or not filename:
-        raise HTTPException(status_code=500, detail="Could not download audio bytes.")
-    
-    headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"',
-        "Content-Type": "audio/mpeg",
-        "Content-Length": str(len(data)),
-        "Cache-Control": "no-cache",
-        "Access-Control-Expose-Headers": "Content-Disposition"
-    }
-    
-    return Response(
-        content=data,
-        media_type="audio/mpeg",
-        headers=headers
-    )
+    if data and filename:
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "audio/mpeg",
+            "Content-Length": str(len(data)),
+            "Cache-Control": "no-cache",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+        return Response(content=data, media_type="audio/mpeg", headers=headers)
+
+    # 2. Proxy Stream Fallback (Bypasses Render cloud disk download blocks)
+    stream_url, filename = utils.get_audio_stream_info(url)
+    if stream_url:
+        import urllib.request
+        def audio_chunk_generator():
+            try:
+                req = urllib.request.Request(
+                    stream_url,
+                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                )
+                with urllib.request.urlopen(req) as resp:
+                    while True:
+                        chunk = resp.read(64 * 1024)
+                        if not chunk:
+                            break
+                        yield chunk
+            except Exception as e:
+                print(f"Chunk streaming error: {e}")
+
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "audio/mpeg",
+            "Cache-Control": "no-cache",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+        return StreamingResponse(audio_chunk_generator(), media_type="audio/mpeg", headers=headers)
+
+    raise HTTPException(status_code=404, detail="Audio download unavailable.")
 
 
 @app.get("/api/data")

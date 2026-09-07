@@ -188,20 +188,44 @@ def get_audio_stream_url(youtube_url):
     """
     Extracts the direct audio stream URL from a YouTube watch URL using yt-dlp.
     """
+    url, _ = get_audio_stream_info(youtube_url)
+    return url
+
+def get_audio_stream_info(youtube_url):
+    """
+    Extracts direct audio stream URL and sanitized title filename without downloading bytes.
+    """
     import yt_dlp
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+    
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
         'no_warnings': True,
-        'nocheckcertificate': True
+        'nocheckcertificate': True,
+        'http_headers': headers,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web', 'ios']
+            }
+        }
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(youtube_url, download=False)
-            return info.get('url')
+            stream_url = info.get('url')
+            title = info.get('title', 'audio')
+            clean_title = "".join([c for c in title if c.isalnum() or c in (' ', '_', '-')]).strip()
+            if not clean_title:
+                clean_title = "audio"
+            filename = f"{clean_title}.mp3"
+            return stream_url, filename
         except Exception as e:
             print(f"Error extracting audio stream URL: {e}")
-            return None
+            return None, "song.mp3"
 
 def get_audio_bytes_via_ytdl(youtube_url):
     """
