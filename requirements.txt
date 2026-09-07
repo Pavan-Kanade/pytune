@@ -1,2 +1,5 @@
-streamlit>=1.60.0
+fastapi>=0.100.0
+uvicorn>=0.20.0
+jinja2>=3.0.0
 yt-dlp
+streamlit>=1.30.0

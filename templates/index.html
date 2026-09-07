@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyTune - Web Music Player</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟢</text></svg>">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">🟢 <span>PyTune</span></div>
+            
+            <ul class="nav-list">
+                <li class="nav-item active" id="nav-home" onclick="switchView('home')">🏠 Home</li>
+                <li class="nav-item" id="nav-search" onclick="switchView('search')">🔍 Search</li>
+                <li class="nav-item" id="nav-library" onclick="switchView('library')">📚 Your Library</li>
+                <li class="nav-item" id="nav-liked" onclick="switchView('liked')">❤️ Liked Songs</li>
+            </ul>
+
+            <div class="sidebar-section">
+                <div class="sidebar-heading">
+                    <span>Playlists</span>
+                    <button class="btn-icon" onclick="openCreatePlaylistModal()" title="Create Playlist">➕</button>
+                </div>
+                <ul class="playlist-list" id="sidebar-playlist-list">
+                    <!-- Dynamic Playlists -->
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Panel -->
+        <main class="main-content">
+            <!-- Header Top Bar -->
+            <div class="top-bar">
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="text" id="top-search-input" placeholder="What do you want to listen to? (Artist, Song, Genre)..." onkeydown="handleSearchKeyPress(event)">
+                </div>
+                <button class="btn-search" onclick="executeSearch()">Search</button>
+            </div>
+
+            <!-- VIEW 1: HOME -->
+            <section id="view-home" class="view-section">
+                <div class="hero-banner">
+                    <h1 class="hero-title">Welcome to PyTune</h1>
+                    <p class="hero-subtitle">Stream millions of MP3 songs with a full-stack Spotify web application.</p>
+                </div>
+
+                <h2 class="section-heading" style="margin-top: 24px;">🔥 Popular Quick Mixes</h2>
+                <div class="cards-grid" id="home-quick-grid">
+                    <!-- Quick suggestions -->
+                </div>
+
+                <h2 class="section-heading" style="margin-top: 32px;">🕒 Recently Played</h2>
+                <div class="cards-grid" id="home-recent-grid">
+                    <!-- Recent History -->
+                </div>
+            </section>
+
+            <!-- VIEW 2: SEARCH -->
+            <section id="view-search" class="view-section" style="display: none;">
+                <h2 class="section-heading">Browse Categories</h2>
+                <div class="genre-container" id="genre-container">
+                    <!-- Genre Pills -->
+                </div>
+
+                <h2 class="section-heading" id="search-results-heading">Results</h2>
+                <div class="cards-grid" id="search-results-grid">
+                    <!-- Search Results -->
+                </div>
+            </section>
+
+            <!-- VIEW 3: LIBRARY -->
+            <section id="view-library" class="view-section" style="display: none;">
+                <h2 class="section-heading">📜 Listening History</h2>
+                <table class="track-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Title</th>
+                            <th>Channel</th>
+                            <th>Duration</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="library-history-tbody">
+                        <!-- History Rows -->
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- VIEW 4: LIKED SONGS -->
+            <section id="view-liked" class="view-section" style="display: none;">
+                <div class="hero-banner" style="background: linear-gradient(180deg, #5038a0 0%, #121212 100%);">
+                    <h1 class="hero-title">❤️ Liked Songs</h1>
+                    <p class="hero-subtitle" id="liked-count-subtitle">0 saved tracks in your collection</p>
+                </div>
+
+                <table class="track-table" style="margin-top: 24px;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Title</th>
+                            <th>Artist</th>
+                            <th>Duration</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="liked-tbody">
+                        <!-- Liked Rows -->
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- VIEW 5: CUSTOM PLAYLIST DETAIL -->
+            <section id="view-playlist" class="view-section" style="display: none;">
+                <div class="hero-banner" style="background: linear-gradient(180deg, #1e3264 0%, #121212 100%);">
+                    <h1 class="hero-title" id="playlist-detail-title">📁 Playlist</h1>
+                    <p class="hero-subtitle" id="playlist-detail-subtitle">0 songs</p>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; gap: 12px;">
+                    <button class="btn-search" onclick="playCurrentPlaylist()">▶️ Play All</button>
+                    <button class="genre-pill" onclick="deleteCurrentPlaylist()">🗑️ Delete Playlist</button>
+                </div>
+
+                <table class="track-table" style="margin-top: 24px;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Title</th>
+                            <th>Artist</th>
+                            <th>Duration</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="playlist-tbody">
+                        <!-- Playlist Rows -->
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <!-- Sticky Bottom Music Player Bar -->
+    <div class="player-bar" id="player-bar" style="display: none;">
+        <!-- Left: Track Info -->
+        <div class="player-track-info">
+            <img src="" id="player-thumb" class="player-thumb" alt="Thumbnail">
+            <div style="overflow: hidden;">
+                <div class="player-title" id="player-title">Track Title</div>
+                <div class="player-artist" id="player-artist">Artist</div>
+            </div>
+        </div>
+
+        <!-- Center: Playback Controls & Seek Bar -->
+        <div class="player-controls-center">
+            <div class="control-buttons">
+                <button class="btn-ctrl" onclick="seekRewind(10)" title="Rewind 10s">⏮️</button>
+                <button class="btn-play-pause" id="btn-player-playpause" onclick="togglePlayPause()" title="Play/Pause">⏸️</button>
+                <button class="btn-ctrl" onclick="seekForward(10)" title="Forward 10s">⏭️</button>
+            </div>
+            <div class="progress-container">
+                <span class="time-label" id="time-current">0:00</span>
+                <input type="range" id="seek-slider" class="seek-slider" min="0" max="100" value="0">
+                <span class="time-label" id="time-duration">0:00</span>
+            </div>
+        </div>
+
+        <!-- Right: Options & Downloads -->
+        <div class="player-right-options">
+            <button class="btn-icon" id="btn-player-like" onclick="toggleCurrentSongLike()" title="Like Track">❤️</button>
+            <a href="#" id="btn-player-download" class="btn-dl" target="_blank" onclick="downloadCurrentSong(event)">📥 Download MP3</a>
+        </div>
+    </div>
+
+    <!-- Hidden Background YouTube API Audio Engine -->
+    <div style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
+        <div id="yt-audio-engine"></div>
+    </div>
+
+    <!-- Modal overlay for creating playlist -->
+    <div class="modal-overlay" id="create-playlist-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Create Playlist</h3>
+            <input type="text" id="modal-playlist-name" class="modal-input" placeholder="Playlist Name...">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="genre-pill" onclick="closeCreatePlaylistModal()">Cancel</button>
+                <button class="btn-search" onclick="submitCreatePlaylist()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast-container" style="display: none;"></div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
