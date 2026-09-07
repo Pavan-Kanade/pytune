@@ -59,16 +59,31 @@ function onYouTubeIframeAPIReady() {
 }
 
 function onPlayerReady(event) {
-    // 300ms timer to update seek slider & timestamps
+    // 300ms timer to update seek sliders & timestamps
     setInterval(() => {
         if (ytPlayer && ytPlayer.getCurrentTime && !isUserSeeking && isPlaying) {
             const curr = ytPlayer.getCurrentTime();
             const dur = ytPlayer.getDuration();
             if (dur > 0) {
                 const percent = (curr / dur) * 100;
-                document.getElementById('seek-slider').value = percent;
-                document.getElementById('time-current').innerText = formatTime(curr);
-                document.getElementById('time-duration').innerText = formatTime(dur);
+                const formattedCurr = formatTime(curr);
+                const formattedDur = formatTime(dur);
+
+                // Update bottom mini player slider
+                const slider1 = document.getElementById('seek-slider');
+                if (slider1) slider1.value = percent;
+                const tc1 = document.getElementById('time-current');
+                if (tc1) tc1.innerText = formattedCurr;
+                const td1 = document.getElementById('time-duration');
+                if (td1) td1.innerText = formattedDur;
+
+                // Update top Now Playing banner slider
+                const slider2 = document.getElementById('np-seek-slider');
+                if (slider2) slider2.value = percent;
+                const tc2 = document.getElementById('np-time-current');
+                if (tc2) tc2.innerText = formattedCurr;
+                const td2 = document.getElementById('np-time-duration');
+                if (td2) td2.innerText = formattedDur;
             }
         }
     }, 300);
@@ -78,13 +93,20 @@ function onPlayerStateChange(event) {
     // YT.PlayerState: 1 = PLAYING, 2 = PAUSED, 0 = ENDED
     if (event.data === 1) {
         isPlaying = true;
-        document.getElementById('btn-player-playpause').innerText = "⏸️";
+        updatePlayPauseButtons("⏸️");
     } else if (event.data === 2) {
         isPlaying = false;
-        document.getElementById('btn-player-playpause').innerText = "▶️";
+        updatePlayPauseButtons("▶️");
     } else if (event.data === 0) {
         playNextTrack();
     }
+}
+
+function updatePlayPauseButtons(iconText) {
+    const btn1 = document.getElementById('btn-player-playpause');
+    if (btn1) btn1.innerText = iconText;
+    const btn2 = document.getElementById('btn-np-playpause');
+    if (btn2) btn2.innerText = iconText;
 }
 
 // Track Playback Core Method
@@ -100,11 +122,20 @@ async function playSong(song, queue = null, index = 0) {
         body: JSON.stringify(song)
     }).then(() => fetchAppData());
 
-    // Update Player Bar UI
+    // 1. Update Bottom Mini Player Bar UI
     document.getElementById('player-bar').style.display = 'flex';
     document.getElementById('player-thumb').src = song.thumbnail;
     document.getElementById('player-title').innerText = song.title;
     document.getElementById('player-artist').innerText = song.channel;
+
+    // 2. Update Top Now Playing Mobile Card Banner
+    const npBanner = document.getElementById('now-playing-banner');
+    if (npBanner) {
+        npBanner.style.display = 'flex';
+        document.getElementById('np-img').src = song.thumbnail;
+        document.getElementById('np-title').innerText = song.title;
+        document.getElementById('np-artist').innerText = song.channel;
+    }
 
     updatePlayerLikeButton();
 
@@ -112,6 +143,15 @@ async function playSong(song, queue = null, index = 0) {
     if (ytPlayer && ytPlayer.loadVideoById) {
         ytPlayer.loadVideoById(song.id);
     }
+
+    // Scroll to top smooth so Now Playing Card is immediately visible
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) mainContent.scrollTop = 0;
+}
+
+function closeNowPlayingBanner() {
+    const npBanner = document.getElementById('now-playing-banner');
+    if (npBanner) npBanner.style.display = 'none';
 }
 
 function playNextTrack() {
@@ -144,18 +184,21 @@ function seekForward(seconds = 10) {
 }
 
 function setupSeekSlider() {
-    const slider = document.getElementById('seek-slider');
-    slider.addEventListener('mousedown', () => { isUserSeeking = true; });
-    slider.addEventListener('touchstart', () => { isUserSeeking = true; });
-    slider.addEventListener('change', () => {
-        if (ytPlayer && ytPlayer.getDuration) {
-            const dur = ytPlayer.getDuration();
-            if (dur > 0) {
-                const targetSec = (slider.value / 100) * dur;
-                ytPlayer.seekTo(targetSec, true);
+    const sliders = [document.getElementById('seek-slider'), document.getElementById('np-seek-slider')];
+    sliders.forEach(slider => {
+        if (!slider) return;
+        slider.addEventListener('mousedown', () => { isUserSeeking = true; });
+        slider.addEventListener('touchstart', () => { isUserSeeking = true; });
+        slider.addEventListener('change', () => {
+            if (ytPlayer && ytPlayer.getDuration) {
+                const dur = ytPlayer.getDuration();
+                if (dur > 0) {
+                    const targetSec = (slider.value / 100) * dur;
+                    ytPlayer.seekTo(targetSec, true);
+                }
             }
-        }
-        isUserSeeking = false;
+            isUserSeeking = false;
+        });
     });
 }
 

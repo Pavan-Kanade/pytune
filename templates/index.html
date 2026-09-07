@@ -42,6 +42,35 @@
                 <button class="btn-search" onclick="executeSearch()">Search</button>
             </div>
 
+            <!-- Dynamic Now Playing Spotify Mobile Card -->
+            <div id="now-playing-banner" class="now-playing-card" style="display: none;">
+                <div class="np-header">
+                    <span class="np-tag">🎧 NOW PLAYING ON PYTUNE</span>
+                    <button class="btn-icon" onclick="closeNowPlayingBanner()" style="font-size: 1.1rem;" title="Close Player Screen">❌</button>
+                </div>
+                <div class="np-body">
+                    <img id="np-img" src="" alt="Album Artwork">
+                    <div class="np-info">
+                        <h2 id="np-title" class="np-title">Track Title</h2>
+                        <p id="np-artist" class="np-artist">Artist Name</p>
+                    </div>
+                </div>
+                <!-- Timeline Seek Slider -->
+                <div class="np-seek-container">
+                    <span id="np-time-current" class="time-label">0:00</span>
+                    <input type="range" id="np-seek-slider" class="seek-slider" min="0" max="100" value="0">
+                    <span id="np-time-duration" class="time-label">0:00</span>
+                </div>
+                <!-- Playback & Download Controls Row -->
+                <div class="np-controls-row">
+                    <button class="btn-ctrl" onclick="seekRewind(10)" title="Rewind 10s">⏮️</button>
+                    <button class="btn-play-pause" id="btn-np-playpause" onclick="togglePlayPause()">⏸️</button>
+                    <button class="btn-ctrl" onclick="seekForward(10)" title="Forward 10s">⏭️</button>
+                    <button class="btn-icon" id="btn-np-like" onclick="toggleCurrentSongLike()" title="Like Track">❤️</button>
+                    <a href="#" id="btn-np-download" class="btn-dl" target="_blank" onclick="downloadCurrentSong(event)">📥 Download MP3</a>
+                </div>
+            </div>
+
             <!-- VIEW 1: HOME -->
             <section id="view-home" class="view-section">
                 <div class="hero-banner">

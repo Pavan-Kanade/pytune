@@ -541,6 +541,85 @@ body {
     outline: none;
 }
 
+/* Spotify Now Playing Screen Card Banner */
+.now-playing-card {
+    background: linear-gradient(135deg, #1e3264 0%, #181818 100%);
+    border: 1px solid #1DB954;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 28px rgba(29, 185, 84, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    animation: fadeIn 0.3s ease;
+}
+
+.np-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.np-tag {
+    background-color: #1DB954;
+    color: #000000;
+    font-weight: 800;
+    font-size: 0.72rem;
+    padding: 4px 12px;
+    border-radius: 500px;
+    letter-spacing: 0.5px;
+}
+
+.np-body {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.np-body img {
+    width: 95px;
+    height: 95px;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+    border: 2px solid #1DB954;
+}
+
+.np-info {
+    overflow: hidden;
+    flex-grow: 1;
+}
+
+.np-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.np-artist {
+    color: #b3b3b3;
+    font-size: 0.95rem;
+    margin-top: 4px;
+}
+
+.np-seek-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.np-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
 /* Toast Notifications */
 .toast-container {
     position: fixed;
