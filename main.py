@@ -132,4 +132,7 @@ async def api_remove_from_playlist(payload: PlaylistRemoveTrackRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 8000))
+    reload_flag = os.getenv("ENV", "development").lower() == "development"
+    uvicorn.run("main:app", host=host, port=port, reload=reload_flag)

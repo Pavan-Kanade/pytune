@@ -4,14 +4,22 @@ import re
 import json
 import os
 import html
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-DATA_FILE = "pytune_data.json"
+DATA_FILE = os.getenv("DATA_FILE", "pytune_data.json")
+DEFAULT_MAX_RESULTS = int(os.getenv("DEFAULT_SEARCH_MAX_RESULTS", 12))
 
-def search_youtube(query, max_results=12):
+def search_youtube(query, max_results=None):
     """
     Searches YouTube for videos matching the query and returns list of metadata dictionaries.
     Uses native scraping to avoid needing an API key.
     """
+    if max_results is None:
+        max_results = DEFAULT_MAX_RESULTS
     if not query.strip():
         return []
         

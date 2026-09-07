@@ -4,3 +4,4 @@ pytune_data.json
 downloads/
 .idea/
 .vscode/
+.env
