@@ -209,7 +209,7 @@ def get_audio_stream_info(youtube_url):
         'http_headers': headers,
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'web', 'ios']
+                'player_client': ['android', 'web', 'ios', 'mweb']
             }
         }
     }
@@ -217,6 +217,17 @@ def get_audio_stream_info(youtube_url):
         try:
             info = ydl.extract_info(youtube_url, download=False)
             stream_url = info.get('url')
+            
+            # Fallback format search if top-level url is missing
+            if not stream_url and 'formats' in info and isinstance(info['formats'], list):
+                audio_formats = [
+                    f for f in info['formats'] 
+                    if (f.get('vcodec') == 'none' or f.get('acodec') != 'none') and f.get('url')
+                ]
+                if audio_formats:
+                    audio_formats.sort(key=lambda x: x.get('tbr') or x.get('abr') or 0)
+                    stream_url = audio_formats[-1]['url']
+
             title = info.get('title', 'audio')
             clean_title = "".join([c for c in title if c.isalnum() or c in (' ', '_', '-')]).strip()
             if not clean_title:

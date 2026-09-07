@@ -69,23 +69,26 @@ async def api_stream(url: str = Query(...)):
 async def api_download(url: str = Query(...)):
     """Downloads audio track and streams MP3 file directly to browser."""
     # 1. Try local disk byte extraction
-    data, filename = utils.get_audio_bytes_via_ytdl(url)
-    if data and filename:
-        headers = {
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Type": "audio/mpeg",
-            "Content-Length": str(len(data)),
-            "Cache-Control": "no-cache",
-            "Access-Control-Expose-Headers": "Content-Disposition"
-        }
-        return Response(content=data, media_type="audio/mpeg", headers=headers)
+    try:
+        data, filename = utils.get_audio_bytes_via_ytdl(url)
+        if data and filename:
+            headers = {
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "audio/mpeg",
+                "Content-Length": str(len(data)),
+                "Cache-Control": "no-cache",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+            return Response(content=data, media_type="audio/mpeg", headers=headers)
+    except Exception as e:
+        print(f"Local byte download error: {e}")
 
     # 2. Proxy Stream Fallback (Bypasses Render cloud disk download blocks)
     stream_url, filename = utils.get_audio_stream_info(url)
     if stream_url:
-        import urllib.request
-        def audio_chunk_generator():
-            try:
+        try:
+            import urllib.request
+            def audio_chunk_generator():
                 req = urllib.request.Request(
                     stream_url,
                     headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -96,18 +99,20 @@ async def api_download(url: str = Query(...)):
                         if not chunk:
                             break
                         yield chunk
-            except Exception as e:
-                print(f"Chunk streaming error: {e}")
 
-        headers = {
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Type": "audio/mpeg",
-            "Cache-Control": "no-cache",
-            "Access-Control-Expose-Headers": "Content-Disposition"
-        }
-        return StreamingResponse(audio_chunk_generator(), media_type="audio/mpeg", headers=headers)
+            headers = {
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "audio/mpeg",
+                "Cache-Control": "no-cache",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+            return StreamingResponse(audio_chunk_generator(), media_type="audio/mpeg", headers=headers)
+        except Exception as e2:
+            print(f"Proxy chunk streaming error: {e2}. Redirecting...")
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=stream_url, status_code=302)
 
-    raise HTTPException(status_code=404, detail="Audio download unavailable.")
+    raise HTTPException(status_code=404, detail="Audio stream unavailable.")
 
 
 @app.get("/api/data")
