@@ -177,6 +177,26 @@
         </div>
     </div>
 
+    <!-- Mobile Bottom Navigation Bar (Android Spotify Mobile Layout) -->
+    <nav class="mobile-bottom-nav">
+        <div class="mobile-nav-item active" id="mnav-home" onclick="switchView('home')">
+            <span class="mnav-icon">🏠</span>
+            <span class="mnav-label">Home</span>
+        </div>
+        <div class="mobile-nav-item" id="mnav-search" onclick="switchView('search')">
+            <span class="mnav-icon">🔍</span>
+            <span class="mnav-label">Search</span>
+        </div>
+        <div class="mobile-nav-item" id="mnav-library" onclick="switchView('library')">
+            <span class="mnav-icon">📚</span>
+            <span class="mnav-label">Library</span>
+        </div>
+        <div class="mobile-nav-item" id="mnav-liked" onclick="switchView('liked')">
+            <span class="mnav-icon">❤️</span>
+            <span class="mnav-label">Liked</span>
+        </div>
+    </nav>
+
     <!-- Hidden Background YouTube API Audio Engine -->
     <div style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
         <div id="yt-audio-engine"></div>

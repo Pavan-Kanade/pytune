@@ -171,10 +171,15 @@ function switchView(viewName, playlistName = '') {
     currentView = viewName;
     activePlaylistName = playlistName;
 
-    // Update active nav styling
+    // Update active nav styling (desktop sidebar)
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const activeNav = document.getElementById(`nav-${viewName}`);
     if (activeNav) activeNav.classList.add('active');
+
+    // Update active nav styling (mobile bottom nav)
+    document.querySelectorAll('.mobile-nav-item').forEach(el => el.classList.remove('active'));
+    const activeMobileNav = document.getElementById(`mnav-${viewName}`);
+    if (activeMobileNav) activeMobileNav.classList.add('active');
 
     // Hide all view sections
     document.querySelectorAll('.view-section').forEach(sec => sec.style.display = 'none');
