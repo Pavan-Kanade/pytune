@@ -455,15 +455,16 @@ function toggleCurrentSongLike() {
     }
 }
 
-// Direct 1-Click MP3 Download
+// Direct 1-Click MP3 Download for Mobile Chrome & Desktop
 function downloadCurrentSong(event) {
-    if (!currentSong) {
-        event.preventDefault();
-        return;
-    }
+    if (event) event.preventDefault();
+    if (!currentSong) return;
+
+    showToast("📥 Starting MP3 Download to Phone...");
     const downloadUrl = `/api/download?url=${encodeURIComponent(currentSong.url)}`;
-    document.getElementById('btn-player-download').href = downloadUrl;
-    showToast("📥 Starting MP3 Download...");
+    
+    // Bypasses Mobile Chrome popup blocker and launches Android Download Manager directly
+    window.location.href = downloadUrl;
 }
 
 // Custom Playlist API Operations

@@ -72,13 +72,18 @@ async def api_download(url: str = Query(...)):
     if not data or not filename:
         raise HTTPException(status_code=500, detail="Could not download audio bytes.")
     
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Type": "audio/mpeg",
+        "Content-Length": str(len(data)),
+        "Cache-Control": "no-cache",
+        "Access-Control-Expose-Headers": "Content-Disposition"
+    }
+    
     return Response(
         content=data,
         media_type="audio/mpeg",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Access-Control-Expose-Headers": "Content-Disposition"
-        }
+        headers=headers
     )
 
 
