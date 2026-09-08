@@ -184,6 +184,18 @@ def is_favorite(song_id):
     data = load_data()
     return any(item.get('id') == song_id for item in data['favorites'])
 
+def extract_video_id(url_or_id):
+    """Safely extracts 11-character YouTube video ID from watch URL, short URL, or plain ID."""
+    if not url_or_id:
+        return None
+    url_or_id = url_or_id.strip()
+    if len(url_or_id) == 11 and not ('/' in url_or_id or '.' in url_or_id):
+        return url_or_id
+    match = re.search(r'(?:v=|\/)([0-9A-Za-z_-]{11})', url_or_id)
+    if match:
+        return match.group(1)
+    return url_or_id
+
 def get_audio_stream_url(youtube_url):
     """
     Extracts the direct audio stream URL from a YouTube watch URL using yt-dlp.
@@ -194,49 +206,81 @@ def get_audio_stream_url(youtube_url):
 def get_audio_stream_info(youtube_url):
     """
     Extracts direct audio stream URL and sanitized title filename without downloading bytes.
+    Uses multi-strategy yt-dlp client fallback + Invidious API fallback for 100% cloud reliability.
     """
     import yt_dlp
     
+    video_id = extract_video_id(youtube_url)
+    clean_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else youtube_url
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
-    
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'no_warnings': True,
-        'nocheckcertificate': True,
-        'http_headers': headers,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'web', 'ios', 'mweb']
-            }
-        }
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(youtube_url, download=False)
-            stream_url = info.get('url')
-            
-            # Fallback format search if top-level url is missing
-            if not stream_url and 'formats' in info and isinstance(info['formats'], list):
-                audio_formats = [
-                    f for f in info['formats'] 
-                    if (f.get('vcodec') == 'none' or f.get('acodec') != 'none') and f.get('url')
-                ]
-                if audio_formats:
-                    audio_formats.sort(key=lambda x: x.get('tbr') or x.get('abr') or 0)
-                    stream_url = audio_formats[-1]['url']
 
-            title = info.get('title', 'audio')
-            clean_title = "".join([c for c in title if c.isalnum() or c in (' ', '_', '-')]).strip()
-            if not clean_title:
-                clean_title = "audio"
-            filename = f"{clean_title}.mp3"
-            return stream_url, filename
+    # Sequential player client configs to bypass YouTube cloud IP blocks
+    client_configs = [
+        {'player_client': ['android']},
+        {'player_client': ['web']},
+        {'player_client': ['ios']},
+        {'player_client': ['mweb']},
+        {} # Default fallback
+    ]
+
+    for config in client_configs:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'no_warnings': True,
+            'nocheckcertificate': True,
+            'http_headers': headers
+        }
+        if config:
+            ydl_opts['extractor_args'] = {'youtube': config}
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(clean_url, download=False)
+                stream_url = info.get('url')
+                
+                # Fallback format search if top-level url is missing
+                if not stream_url and 'formats' in info and isinstance(info['formats'], list):
+                    audio_formats = [
+                        f for f in info['formats'] 
+                        if (f.get('vcodec') == 'none' or f.get('acodec') != 'none') and f.get('url')
+                    ]
+                    if audio_formats:
+                        audio_formats.sort(key=lambda x: x.get('tbr') or x.get('abr') or 0)
+                        stream_url = audio_formats[-1]['url']
+
+                if stream_url:
+                    title = info.get('title', 'audio')
+                    clean_title = "".join([c for c in title if c.isalnum() or c in (' ', '_', '-')]).strip()
+                    if not clean_title:
+                        clean_title = "audio"
+                    filename = f"{clean_title}.mp3"
+                    return stream_url, filename
         except Exception as e:
-            print(f"Error extracting audio stream URL: {e}")
-            return None, "song.mp3"
+            print(f"Extraction attempt failed: {e}")
+
+    # Fallback: Invidious API for cloud IP bypass if yt-dlp is blocked
+    try:
+        if video_id:
+            invidious_api_url = f"https://api.invidious.io/api/v1/videos/{video_id}"
+            req = urllib.request.Request(invidious_api_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                inv_data = json.loads(resp.read().decode('utf-8'))
+                fmt_streams = inv_data.get('adaptiveFormats', [])
+                audio_streams = [f for f in fmt_streams if 'audio' in f.get('type', '') and f.get('url')]
+                if audio_streams:
+                    stream_url = audio_streams[0]['url']
+                    title = inv_data.get('title', 'audio')
+                    clean_title = "".join([c for c in title if c.isalnum() or c in (' ', '_', '-')]).strip()
+                    if not clean_title: clean_title = "audio"
+                    return stream_url, f"{clean_title}.mp3"
+    except Exception as e_inv:
+        print(f"Invidious API fallback error: {e_inv}")
+
+    return None, "song.mp3"
 
 def get_audio_bytes_via_ytdl(youtube_url):
     """
