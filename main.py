@@ -17,6 +17,31 @@ os.makedirs("downloads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Request Pydantic Schemas
+class SongModel(BaseModel):
+    id: str
+    title: str
+    thumbnail: str
+    duration: str
+    channel: str
+    views: Optional[str] = ""
+    url: str
+
+class PlaylistCreateRequest(BaseModel):
+    name: str
+
+class PlaylistDeleteRequest(BaseModel):
+    name: str
+
+class PlaylistAddTrackRequest(BaseModel):
+    playlist_name: str
+    song: Dict[str, Any]
+
+class PlaylistRemoveTrackRequest(BaseModel):
+    playlist_name: str
+    song_id: str
+
+
 def cleanup_temp_file(filepath: str, file_id: str):
     """Deletes temporary cached MP3 file from server disk immediately after download completes."""
     try:
@@ -25,6 +50,30 @@ def cleanup_temp_file(filepath: str, file_id: str):
             print(f"[CLEANUP] Deleted server temp file: {filepath} (Storage restored to null)")
     except Exception as e:
         print(f"[CLEANUP ERROR] {e}")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_index(request: Request):
+    """Renders the Spotify Single Page Application frontend."""
+    return templates.TemplateResponse(request=request, name="index.html")
+
+
+@app.get("/api/search")
+async def api_search(q: str = Query(..., min_length=1), max_results: int = 12):
+    """Searches YouTube for videos and returns list of track metadata."""
+    results = utils.search_youtube(q, max_results=max_results)
+    if q.strip():
+        utils.add_recent_search(q)
+    return JSONResponse(results)
+
+
+@app.get("/api/stream")
+async def api_stream(url: str = Query(...)):
+    """Extracts direct audio stream URL."""
+    stream_url = utils.get_audio_stream_url(url)
+    if not stream_url:
+        raise HTTPException(status_code=404, detail="Audio stream URL could not be extracted.")
+    return JSONResponse({"stream_url": stream_url})
 
 
 @app.get("/api/download")
