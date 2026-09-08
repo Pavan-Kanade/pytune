@@ -280,7 +280,55 @@ def get_audio_stream_info(youtube_url):
     except Exception as e_inv:
         print(f"Invidious API fallback error: {e_inv}")
 
-    return None, "song.mp3"
+def save_audio_to_temp_storage(youtube_url):
+    """
+    Downloads audio track to temporary 'downloads/' cache directory on server,
+    returns (file_path, filename, file_id).
+    Streams stream_url directly to temp file if yt-dlp local disk download fails on Cloud IPs.
+    """
+    import os
+    import uuid
+    import urllib.request
+    
+    downloads_dir = os.path.join(os.getcwd(), "downloads")
+    os.makedirs(downloads_dir, exist_ok=True)
+
+    file_id = str(uuid.uuid4())[:8]
+
+    # 1. Attempt yt-dlp local download first
+    try:
+        data, filename = get_audio_bytes_via_ytdl(youtube_url)
+        if data and filename:
+            temp_filepath = os.path.join(downloads_dir, f"{file_id}_{filename}")
+            with open(temp_filepath, 'wb') as f:
+                f.write(data)
+            return temp_filepath, filename, file_id
+    except Exception as e:
+        print(f"Byte extraction failed: {e}")
+
+    # 2. Fallback: Stream direct audio stream into temp file on server
+    try:
+        stream_url, filename = get_audio_stream_info(youtube_url)
+        if stream_url:
+            temp_filepath = os.path.join(downloads_dir, f"{file_id}_{filename}")
+            req = urllib.request.Request(
+                stream_url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': '*/*'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp, open(temp_filepath, 'wb') as f:
+                while True:
+                    chunk = resp.read(64 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            return temp_filepath, filename, file_id
+    except Exception as e2:
+        print(f"Stream buffer save failed: {e2}")
+
+    return None, "song.mp3", None
 
 def get_audio_bytes_via_ytdl(youtube_url):
     """

@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Request, Query, HTTPException, Response
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi import FastAPI, Request, Query, HTTPException, Response, BackgroundTasks
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -12,123 +12,53 @@ app = FastAPI(title="PyTune Web Application", description="Spotify-style Full-St
 # Mount Static & Template directories
 os.makedirs("static", exist_ok=True)
 os.makedirs("templates", exist_ok=True)
+os.makedirs("downloads", exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Request Pydantic Schemas
-class SongModel(BaseModel):
-    id: str
-    title: str
-    thumbnail: str
-    duration: str
-    channel: str
-    views: Optional[str] = ""
-    url: str
-
-class PlaylistCreateRequest(BaseModel):
-    name: str
-
-class PlaylistDeleteRequest(BaseModel):
-    name: str
-
-class PlaylistAddTrackRequest(BaseModel):
-    playlist_name: str
-    song: Dict[str, Any]
-
-class PlaylistRemoveTrackRequest(BaseModel):
-    playlist_name: str
-    song_id: str
-
-
-@app.get("/", response_class=HTMLResponse)
-async def serve_index(request: Request):
-    """Renders the Spotify Single Page Application frontend."""
-    return templates.TemplateResponse(request=request, name="index.html")
-
-
-@app.get("/api/search")
-async def api_search(q: str = Query(..., min_length=1), max_results: int = 12):
-    """Searches YouTube for videos and returns list of track metadata."""
-    results = utils.search_youtube(q, max_results=max_results)
-    if q.strip():
-        utils.add_recent_search(q)
-    return JSONResponse(results)
-
-
-@app.get("/api/stream")
-async def api_stream(url: str = Query(...)):
-    """Extracts direct audio stream URL."""
-    stream_url = utils.get_audio_stream_url(url)
-    if not stream_url:
-        raise HTTPException(status_code=404, detail="Audio stream URL could not be extracted.")
-    return JSONResponse({"stream_url": stream_url})
+def cleanup_temp_file(filepath: str, file_id: str):
+    """Deletes temporary cached MP3 file from server disk immediately after download completes."""
+    try:
+        if filepath and os.path.exists(filepath):
+            os.remove(filepath)
+            print(f"[CLEANUP] Deleted server temp file: {filepath} (Storage restored to null)")
+    except Exception as e:
+        print(f"[CLEANUP ERROR] {e}")
 
 
 @app.get("/api/download")
-async def api_download(url: str = Query(...)):
-    """Downloads audio track and streams MP3 file directly to browser."""
-    # 1. Try local disk byte extraction
-    try:
-        data, filename = utils.get_audio_bytes_via_ytdl(url)
-        if data and filename:
-            headers = {
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Type": "audio/mpeg",
-                "Content-Length": str(len(data)),
+async def api_download(url: str = Query(...), background_tasks: BackgroundTasks = None):
+    """
+    Pre-buffers audio track into temporary server storage ('downloads/'),
+    serves FileResponse directly to browser, and auto-deletes file immediately
+    after transfer completes (leaving server storage null).
+    """
+    if background_tasks is None:
+        background_tasks = BackgroundTasks()
+
+    filepath, filename, file_id = utils.save_audio_to_temp_storage(url)
+    
+    if filepath and os.path.exists(filepath):
+        # Schedule automatic cleanup immediately after transfer completes
+        background_tasks.add_task(cleanup_temp_file, filepath, file_id)
+        
+        return FileResponse(
+            path=filepath,
+            filename=filename,
+            media_type="audio/mpeg",
+            headers={
                 "Cache-Control": "no-cache",
-                "Access-Control-Expose-Headers": "Content-Disposition"
+                "Content-Disposition": f'attachment; filename="{filename}"'
             }
-            return Response(content=data, media_type="audio/mpeg", headers=headers)
-    except Exception as e:
-        print(f"Local byte download error: {e}")
+        )
 
-    # 2. Extract stream URL & filename
-    stream_url, filename = utils.get_audio_stream_info(url)
+    # Fallback to direct stream redirect if server temp buffering fails
+    stream_url, _ = utils.get_audio_stream_info(url)
     if stream_url:
-        # Check if stream URL is directly reachable from server
-        try:
-            import urllib.request
-            req_check = urllib.request.Request(
-                stream_url,
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': '*/*',
-                    'Range': 'bytes=0-1024'
-                }
-            )
-            with urllib.request.urlopen(req_check) as test_resp:
-                if test_resp.status in (200, 206):
-                    def audio_chunk_generator():
-                        req = urllib.request.Request(
-                            stream_url,
-                            headers={
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                                'Accept': '*/*'
-                            }
-                        )
-                        with urllib.request.urlopen(req) as resp:
-                            while True:
-                                chunk = resp.read(64 * 1024)
-                                if not chunk:
-                                    break
-                                yield chunk
-
-                    headers = {
-                        "Content-Disposition": f'attachment; filename="{filename}"',
-                        "Content-Type": "audio/mpeg",
-                        "Cache-Control": "no-cache",
-                        "Access-Control-Expose-Headers": "Content-Disposition"
-                    }
-                    return StreamingResponse(audio_chunk_generator(), media_type="audio/mpeg", headers=headers)
-        except Exception as e_stream:
-            print(f"Direct stream check failed: {e_stream}. Redirecting browser to stream URL...")
-
-        # 3. Direct 302 Redirect Fallback (Client browser fetches stream URL directly)
-        from fastapi.responses import RedirectResponse
         return RedirectResponse(url=stream_url, status_code=302)
 
-    raise HTTPException(status_code=404, detail="Audio download link could not be generated.")
+    raise HTTPException(status_code=500, detail="Could not prepare temporary MP3 file for download.")
 
 
 @app.get("/api/data")
