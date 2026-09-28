@@ -185,52 +185,68 @@ async def api_download(url: str = Query(...), background_tasks: BackgroundTasks 
     raise HTTPException(status_code=500, detail="Could not prepare temporary MP3 file for download.")
 
 
+def get_token_from_request(request: Request) -> str:
+    """Extracts session token from Authorization header or pytune_session cookie."""
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if not token:
+        token = request.cookies.get("pytune_session", "")
+    return token
+
+
 @app.get("/api/data")
-async def api_get_data():
-    """Returns persistent local storage data (favorites, history, searches, playlists)."""
-    return JSONResponse(utils.load_data())
+async def api_get_data(request: Request):
+    """Returns persistent storage data (favorites, history, searches, playlists) for current user."""
+    token = get_token_from_request(request)
+    return JSONResponse(utils.get_user_data(token))
 
 
 @app.post("/api/favorites")
-async def api_toggle_favorite(song: Dict[str, Any]):
-    """Toggles song in Liked Songs."""
-    added = utils.toggle_favorite(song)
-    return JSONResponse({"added": added, "data": utils.load_data()})
+async def api_toggle_favorite(song: Dict[str, Any], request: Request):
+    """Toggles song in Liked Songs for current user."""
+    token = get_token_from_request(request)
+    added = utils.toggle_favorite(song, token)
+    return JSONResponse({"added": added, "data": utils.get_user_data(token)})
 
 
 @app.post("/api/history")
-async def api_add_history(song: Dict[str, Any]):
-    """Adds song to listening history."""
-    utils.add_to_history(song)
+async def api_add_history(song: Dict[str, Any], request: Request):
+    """Adds song to listening history for current user."""
+    token = get_token_from_request(request)
+    utils.add_to_history(song, token)
     return JSONResponse({"success": True})
 
 
 @app.post("/api/playlists/create")
-async def api_create_playlist(payload: PlaylistCreateRequest):
-    """Creates a new custom playlist."""
-    created = utils.create_playlist(payload.name)
-    return JSONResponse({"success": created, "data": utils.load_data()})
+async def api_create_playlist(payload: PlaylistCreateRequest, request: Request):
+    """Creates a new custom playlist for current user."""
+    token = get_token_from_request(request)
+    created = utils.create_playlist(payload.name, token)
+    return JSONResponse({"success": created, "data": utils.get_user_data(token)})
 
 
 @app.post("/api/playlists/delete")
-async def api_delete_playlist(payload: PlaylistDeleteRequest):
-    """Deletes a custom playlist."""
-    deleted = utils.delete_playlist(payload.name)
-    return JSONResponse({"success": deleted, "data": utils.load_data()})
+async def api_delete_playlist(payload: PlaylistDeleteRequest, request: Request):
+    """Deletes a custom playlist for current user."""
+    token = get_token_from_request(request)
+    deleted = utils.delete_playlist(payload.name, token)
+    return JSONResponse({"success": deleted, "data": utils.get_user_data(token)})
 
 
 @app.post("/api/playlists/add_track")
-async def api_add_to_playlist(payload: PlaylistAddTrackRequest):
-    """Adds a song to a custom playlist."""
-    added = utils.add_to_playlist(payload.playlist_name, payload.song)
-    return JSONResponse({"success": added, "data": utils.load_data()})
+async def api_add_to_playlist(payload: PlaylistAddTrackRequest, request: Request):
+    """Adds a song to a custom playlist for current user."""
+    token = get_token_from_request(request)
+    added = utils.add_to_playlist(payload.playlist_name, payload.song, token)
+    return JSONResponse({"success": added, "data": utils.get_user_data(token)})
 
 
 @app.post("/api/playlists/remove_track")
-async def api_remove_from_playlist(payload: PlaylistRemoveTrackRequest):
-    """Removes a song from a custom playlist."""
-    removed = utils.remove_from_playlist(payload.playlist_name, payload.song_id)
-    return JSONResponse({"success": removed, "data": utils.load_data()})
+async def api_remove_from_playlist(payload: PlaylistRemoveTrackRequest, request: Request):
+    """Removes a song from a custom playlist for current user."""
+    token = get_token_from_request(request)
+    removed = utils.remove_from_playlist(payload.playlist_name, payload.song_id, token)
+    return JSONResponse({"success": removed, "data": utils.get_user_data(token)})
+
 
 
 if __name__ == "__main__":

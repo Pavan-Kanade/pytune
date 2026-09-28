@@ -185,7 +185,11 @@ def register_user(email: str, password: str, name: str = ""):
         "name": clean_name,
         "password_hash": hash_password(password),
         "provider": "email",
-        "avatar": f"https://api.dicebear.com/7.x/bottts/svg?seed={email}"
+        "avatar": f"https://api.dicebear.com/7.x/bottts/svg?seed={email}",
+        "favorites": [],
+        "history": [],
+        "playlists": {},
+        "searches": []
     }
     
     session_token = f"sess_{str(uuid.uuid4())}"
@@ -255,6 +259,10 @@ def login_oauth_user(provider: str, email: str, name: str = "", avatar: str = ""
         user_record["provider"] = provider
         if avatar:
             user_record["avatar"] = avatar
+        if "favorites" not in user_record: user_record["favorites"] = []
+        if "history" not in user_record: user_record["history"] = []
+        if "playlists" not in user_record: user_record["playlists"] = {}
+        if "searches" not in user_record: user_record["searches"] = []
     else:
         user_id = f"user_{str(uuid.uuid4())[:8]}"
         user_record = {
@@ -263,7 +271,11 @@ def login_oauth_user(provider: str, email: str, name: str = "", avatar: str = ""
             "name": clean_name,
             "password_hash": "",
             "provider": provider,
-            "avatar": avatar or f"https://api.dicebear.com/7.x/bottts/svg?seed={email}"
+            "avatar": avatar or f"https://api.dicebear.com/7.x/bottts/svg?seed={email}",
+            "favorites": [],
+            "history": [],
+            "playlists": {},
+            "searches": []
         }
         data['users'][email] = user_record
 
@@ -285,6 +297,40 @@ def login_oauth_user(provider: str, email: str, name: str = "", avatar: str = ""
             "avatar": user_record.get("avatar")
         }
     }
+
+def get_user_email_from_token(token: str):
+    """Helper to extract user email from a session token."""
+    if not token:
+        return None
+    data = load_data()
+    session = data.get('sessions', {}).get(token)
+    if session:
+        return session.get('email')
+    return None
+
+def get_user_data(token: str = None):
+    """Returns user-specific music data (favorites, history, playlists, searches) or default data."""
+    data = load_data()
+    email = get_user_email_from_token(token)
+    if email and email in data.get('users', {}):
+        user_rec = data['users'][email]
+        if 'favorites' not in user_rec or not isinstance(user_rec['favorites'], list): user_rec['favorites'] = []
+        if 'history' not in user_rec or not isinstance(user_rec['history'], list): user_rec['history'] = []
+        if 'playlists' not in user_rec or not isinstance(user_rec['playlists'], dict): user_rec['playlists'] = {}
+        if 'searches' not in user_rec or not isinstance(user_rec['searches'], list): user_rec['searches'] = []
+        return {
+            "favorites": user_rec['favorites'],
+            "history": user_rec['history'],
+            "playlists": user_rec['playlists'],
+            "searches": user_rec['searches']
+        }
+    return {
+        "favorites": data.get("favorites", []),
+        "history": data.get("history", []),
+        "playlists": data.get("playlists", {}),
+        "searches": data.get("searches", [])
+    }
+
 
 def get_user_by_session(token: str):
     """Retrieves logged in user details by session token."""
@@ -317,42 +363,62 @@ def logout_user(token: str):
     return True
 
 
-def add_to_history(song):
-    """Adds a song to the history. Removes duplicates and limits to last 30 entries."""
+def add_to_history(song, token: str = None):
+    """Adds a song to the history for the logged-in user or global list."""
     if not isinstance(song, dict) or 'id' not in song:
         return
     data = load_data()
-    # Remove existing copy if present
-    data['history'] = [item for item in data['history'] if item.get('id') != song.get('id')]
-    # Insert at the beginning (most recent first)
-    data['history'].insert(0, song)
-    # Keep only the last 30 items
-    data['history'] = data['history'][:30]
+    email = get_user_email_from_token(token)
+    
+    if email and email in data.get('users', {}):
+        target = data['users'][email]
+        if 'history' not in target or not isinstance(target['history'], list):
+            target['history'] = []
+        target['history'] = [item for item in target['history'] if item.get('id') != song.get('id')]
+        target['history'].insert(0, song)
+        target['history'] = target['history'][:30]
+    else:
+        data['history'] = [item for item in data['history'] if item.get('id') != song.get('id')]
+        data['history'].insert(0, song)
+        data['history'] = data['history'][:30]
+
     save_data(data)
 
-def toggle_favorite(song):
-    """Toggles favorite status for a song."""
+def toggle_favorite(song, token: str = None):
+    """Toggles favorite status for a song for the logged-in user or global list."""
     if not isinstance(song, dict) or 'id' not in song:
         return False
     data = load_data()
-    is_fav = any(item.get('id') == song.get('id') for item in data['favorites'])
+    email = get_user_email_from_token(token)
     
-    if is_fav:
-        # Remove from favorites
-        data['favorites'] = [item for item in data['favorites'] if item.get('id') != song.get('id')]
-        added = False
+    if email and email in data.get('users', {}):
+        target = data['users'][email]
+        if 'favorites' not in target or not isinstance(target['favorites'], list):
+            target['favorites'] = []
+        is_fav = any(item.get('id') == song.get('id') for item in target['favorites'])
+        if is_fav:
+            target['favorites'] = [item for item in target['favorites'] if item.get('id') != song.get('id')]
+            added = False
+        else:
+            target['favorites'].insert(0, song)
+            added = True
     else:
-        # Add to favorites
-        data['favorites'].insert(0, song)
-        added = True
-        
+        is_fav = any(item.get('id') == song.get('id') for item in data['favorites'])
+        if is_fav:
+            data['favorites'] = [item for item in data['favorites'] if item.get('id') != song.get('id')]
+            added = False
+        else:
+            data['favorites'].insert(0, song)
+            added = True
+            
     save_data(data)
     return added
 
-def is_favorite(song_id):
+def is_favorite(song_id, token: str = None):
     """Checks if a song is in favorites."""
-    data = load_data()
-    return any(item.get('id') == song_id for item in data['favorites'])
+    user_data = get_user_data(token)
+    return any(item.get('id') == song_id for item in user_data.get('favorites', []))
+
 
 def extract_video_id(url_or_id):
     """Safely extracts 11-character YouTube video ID from watch URL, short URL, or plain ID."""
@@ -589,58 +655,107 @@ def get_audio_bytes_via_ytdl(youtube_url):
             print(f"Fallback download error: {e2}")
             return None, None
 
-def add_recent_search(query):
+def add_recent_search(query, token: str = None):
     """Adds a search query to the persistent search history list."""
     query = query.strip()
     if not query:
         return
     data = load_data()
-    # Remove existing copy if present
-    data['searches'] = [item for item in data['searches'] if item.lower() != query.lower()]
-    # Insert at the beginning (most recent first)
-    data['searches'].insert(0, query)
-    # Keep only the last 5 items
-    data['searches'] = data['searches'][:5]
+    email = get_user_email_from_token(token)
+    
+    if email and email in data.get('users', {}):
+        target = data['users'][email]
+        if 'searches' not in target or not isinstance(target['searches'], list):
+            target['searches'] = []
+        target['searches'] = [item for item in target['searches'] if item.lower() != query.lower()]
+        target['searches'].insert(0, query)
+        target['searches'] = target['searches'][:5]
+    else:
+        data['searches'] = [item for item in data['searches'] if item.lower() != query.lower()]
+        data['searches'].insert(0, query)
+        data['searches'] = data['searches'][:5]
+
     save_data(data)
 
-def create_playlist(name):
-    """Creates a new custom playlist."""
+def create_playlist(name, token: str = None):
+    """Creates a new custom playlist for the logged in user or global list."""
     name = name.strip()
     if not name:
         return False
     data = load_data()
-    if name not in data['playlists']:
-        data['playlists'][name] = []
-        save_data(data)
-        return True
-    return False
-
-def delete_playlist(name):
-    """Deletes a custom playlist."""
-    data = load_data()
-    if name in data['playlists']:
-        del data['playlists'][name]
-        save_data(data)
-        return True
-    return False
-
-def add_to_playlist(name, song):
-    """Adds a song to a custom playlist."""
-    if not isinstance(song, dict) or 'id' not in song:
+    email = get_user_email_from_token(token)
+    
+    if email and email in data.get('users', {}):
+        target = data['users'][email]
+        if 'playlists' not in target or not isinstance(target['playlists'], dict):
+            target['playlists'] = {}
+        if name not in target['playlists']:
+            target['playlists'][name] = []
+            save_data(data)
+            return True
         return False
+    else:
+        if name not in data['playlists']:
+            data['playlists'][name] = []
+            save_data(data)
+            return True
+        return False
+
+def delete_playlist(name, token: str = None):
+    """Deletes a custom playlist for the logged in user or global list."""
     data = load_data()
-    if name in data['playlists']:
-        if not any(item.get('id') == song.get('id') for item in data['playlists'][name]):
-            data['playlists'][name].append(song)
+    email = get_user_email_from_token(token)
+    
+    if email and email in data.get('users', {}):
+        target = data['users'][email]
+        if 'playlists' in target and name in target['playlists']:
+            del target['playlists'][name]
+            save_data(data)
+            return True
+    else:
+        if name in data['playlists']:
+            del data['playlists'][name]
             save_data(data)
             return True
     return False
 
-def remove_from_playlist(name, song_id):
-    """Removes a song from a custom playlist."""
+def add_to_playlist(name, song, token: str = None):
+    """Adds a song to a custom playlist for the logged in user or global list."""
+    if not isinstance(song, dict) or 'id' not in song:
+        return False
     data = load_data()
-    if name in data['playlists']:
-        data['playlists'][name] = [item for item in data['playlists'][name] if item.get('id') != song_id]
-        save_data(data)
-        return True
+    email = get_user_email_from_token(token)
+    
+    if email and email in data.get('users', {}):
+        target = data['users'][email]
+        if 'playlists' in target and name in target['playlists']:
+            if not any(item.get('id') == song.get('id') for item in target['playlists'][name]):
+                target['playlists'][name].append(song)
+                save_data(data)
+                return True
+    else:
+        if name in data['playlists']:
+            if not any(item.get('id') == song.get('id') for item in data['playlists'][name]):
+                data['playlists'][name].append(song)
+                save_data(data)
+                return True
     return False
+
+def remove_from_playlist(name, song_id, token: str = None):
+    """Removes a song from a custom playlist for the logged in user or global list."""
+    data = load_data()
+    email = get_user_email_from_token(token)
+    
+    if email and email in data.get('users', {}):
+        target = data['users'][email]
+        if 'playlists' in target and name in target['playlists']:
+            target['playlists'][name] = [item for item in target['playlists'][name] if item.get('id') != song_id]
+            save_data(data)
+            return True
+    else:
+        if name in data['playlists']:
+            data['playlists'][name] = [item for item in data['playlists'][name] if item.get('id') != song_id]
+            save_data(data)
+            return True
+    return False
+

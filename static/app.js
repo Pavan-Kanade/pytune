@@ -26,10 +26,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupSeekSlider();
 });
 
+function getAuthHeaders() {
+    const token = localStorage.getItem('pytune_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
 // Fetch All Persistent App Data from Backend REST API
 async function fetchAppData() {
     try {
-        const response = await fetch('/api/data');
+        const response = await fetch('/api/data', { headers: getAuthHeaders() });
         if (response.ok) {
             appData = await response.json();
             renderSidebarPlaylists();
@@ -119,7 +128,7 @@ async function playSong(song, queue = null, index = 0) {
     // Record listening history in backend
     fetch('/api/history', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(song)
     }).then(() => fetchAppData());
 
@@ -420,7 +429,7 @@ async function toggleFavoriteTrack(song) {
     try {
         const res = await fetch('/api/favorites', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify(song)
         });
         if (res.ok) {
@@ -485,7 +494,7 @@ async function submitCreatePlaylist() {
     try {
         const res = await fetch('/api/playlists/create', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ name })
         });
         if (res.ok) {
@@ -507,7 +516,7 @@ async function deleteCurrentPlaylist() {
     try {
         const res = await fetch('/api/playlists/delete', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ name: activePlaylistName })
         });
         if (res.ok) {
@@ -526,7 +535,7 @@ async function addTrackToPlaylist(playlistName, song) {
     try {
         const res = await fetch('/api/playlists/add_track', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ playlist_name: playlistName, song })
         });
         if (res.ok) {
@@ -542,7 +551,7 @@ async function removeTrackFromPlaylist(playlistName, songId) {
     try {
         const res = await fetch('/api/playlists/remove_track', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ playlist_name: playlistName, song_id: songId })
         });
         if (res.ok) {
@@ -782,5 +791,6 @@ function updateAuthUI(user) {
         if (headerLoginBtn) headerLoginBtn.style.display = 'block';
         if (userBadge) userBadge.style.display = 'none';
     }
+    fetchAppData();
 }
 
