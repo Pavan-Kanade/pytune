@@ -118,9 +118,19 @@ def search_youtube(query, max_results=None):
 
 # Local Data Persistence Functions
 
+import hashlib
+import uuid
+
 def load_data():
-    """Loads favorites, search history, playlists, and recent searches from a local JSON file."""
-    default_data = {"favorites": [], "history": [], "searches": [], "playlists": {}}
+    """Loads favorites, search history, playlists, users, and sessions from a local JSON file."""
+    default_data = {
+        "favorites": [],
+        "history": [],
+        "searches": [],
+        "playlists": {},
+        "users": {},
+        "sessions": {}
+    }
     if not os.path.exists(DATA_FILE):
         return default_data
         
@@ -134,6 +144,8 @@ def load_data():
             if 'history' not in data or not isinstance(data['history'], list): data['history'] = []
             if 'searches' not in data or not isinstance(data['searches'], list): data['searches'] = []
             if 'playlists' not in data or not isinstance(data['playlists'], dict): data['playlists'] = {}
+            if 'users' not in data or not isinstance(data['users'], dict): data['users'] = {}
+            if 'sessions' not in data or not isinstance(data['sessions'], dict): data['sessions'] = {}
             return data
     except Exception as e:
         print(f"Error loading local data: {e}")
@@ -146,6 +158,164 @@ def save_data(data):
             json.dump(data, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print(f"Error saving local data: {e}")
+
+def hash_password(password: str) -> str:
+    """Hashes user password using SHA-256 with a salt."""
+    salt = "pytune_secret_salt_2026"
+    return hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
+
+def register_user(email: str, password: str, name: str = ""):
+    """Registers a new user account with email and password."""
+    email = email.strip().lower()
+    if not email or '@' not in email:
+        return {"success": False, "error": "Invalid email address format."}
+    if not password or len(password) < 6:
+        return {"success": False, "error": "Password must be at least 6 characters long."}
+    
+    data = load_data()
+    if email in data['users']:
+        return {"success": False, "error": "An account with this email already exists."}
+
+    user_id = f"user_{str(uuid.uuid4())[:8]}"
+    clean_name = name.strip() if name else email.split('@')[0].capitalize()
+    
+    user_record = {
+        "id": user_id,
+        "email": email,
+        "name": clean_name,
+        "password_hash": hash_password(password),
+        "provider": "email",
+        "avatar": f"https://api.dicebear.com/7.x/bottts/svg?seed={email}"
+    }
+    
+    session_token = f"sess_{str(uuid.uuid4())}"
+    data['users'][email] = user_record
+    data['sessions'][session_token] = {
+        "user_id": user_id,
+        "email": email
+    }
+    save_data(data)
+    
+    return {
+        "success": True,
+        "token": session_token,
+        "user": {
+            "id": user_id,
+            "email": email,
+            "name": clean_name,
+            "provider": "email",
+            "avatar": user_record["avatar"]
+        }
+    }
+
+def login_user(email: str, password: str):
+    """Authenticates user with email and password."""
+    email = email.strip().lower()
+    if not email or not password:
+        return {"success": False, "error": "Please provide both email and password."}
+        
+    data = load_data()
+    user = data['users'].get(email)
+    if not user:
+        return {"success": False, "error": "No account found with this email address."}
+        
+    if user.get("password_hash") != hash_password(password):
+        return {"success": False, "error": "Incorrect password."}
+
+    session_token = f"sess_{str(uuid.uuid4())}"
+    data['sessions'][session_token] = {
+        "user_id": user.get("id"),
+        "email": email
+    }
+    save_data(data)
+
+    return {
+        "success": True,
+        "token": session_token,
+        "user": {
+            "id": user.get("id"),
+            "email": user.get("email"),
+            "name": user.get("name"),
+            "provider": user.get("provider", "email"),
+            "avatar": user.get("avatar", "")
+        }
+    }
+
+def login_oauth_user(provider: str, email: str, name: str = "", avatar: str = ""):
+    """Registers or logs in a user using OAuth (Google or Microsoft)."""
+    email = email.strip().lower()
+    if not email:
+        return {"success": False, "error": "OAuth user email required."}
+
+    data = load_data()
+    clean_name = name.strip() if name else email.split('@')[0].capitalize()
+    
+    if email in data['users']:
+        user_record = data['users'][email]
+        user_record["provider"] = provider
+        if avatar:
+            user_record["avatar"] = avatar
+    else:
+        user_id = f"user_{str(uuid.uuid4())[:8]}"
+        user_record = {
+            "id": user_id,
+            "email": email,
+            "name": clean_name,
+            "password_hash": "",
+            "provider": provider,
+            "avatar": avatar or f"https://api.dicebear.com/7.x/bottts/svg?seed={email}"
+        }
+        data['users'][email] = user_record
+
+    session_token = f"sess_{str(uuid.uuid4())}"
+    data['sessions'][session_token] = {
+        "user_id": user_record.get("id"),
+        "email": email
+    }
+    save_data(data)
+
+    return {
+        "success": True,
+        "token": session_token,
+        "user": {
+            "id": user_record.get("id"),
+            "email": user_record.get("email"),
+            "name": user_record.get("name"),
+            "provider": provider,
+            "avatar": user_record.get("avatar")
+        }
+    }
+
+def get_user_by_session(token: str):
+    """Retrieves logged in user details by session token."""
+    if not token:
+        return None
+    data = load_data()
+    session = data['sessions'].get(token)
+    if not session:
+        return None
+    email = session.get("email")
+    user = data['users'].get(email)
+    if not user:
+        return None
+    return {
+        "id": user.get("id"),
+        "email": user.get("email"),
+        "name": user.get("name"),
+        "provider": user.get("provider", "email"),
+        "avatar": user.get("avatar", "")
+    }
+
+def logout_user(token: str):
+    """Logs out user by invalidating the session token."""
+    if not token:
+        return True
+    data = load_data()
+    if token in data['sessions']:
+        del data['sessions'][token]
+        save_data(data)
+    return True
+
 
 def add_to_history(song):
     """Adds a song to the history. Removes duplicates and limits to last 30 entries."""

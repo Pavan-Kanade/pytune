@@ -41,6 +41,21 @@ class PlaylistRemoveTrackRequest(BaseModel):
     playlist_name: str
     song_id: str
 
+class UserRegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = ""
+
+class UserLoginRequest(BaseModel):
+    email: str
+    password: str
+
+class OAuthLoginRequest(BaseModel):
+    provider: str
+    email: str
+    name: Optional[str] = ""
+    avatar: Optional[str] = ""
+
 
 def cleanup_temp_file(filepath: str, file_id: str):
     """Deletes temporary cached MP3 file from server disk immediately after download completes."""
@@ -56,6 +71,66 @@ def cleanup_temp_file(filepath: str, file_id: str):
 async def serve_index(request: Request):
     """Renders the Spotify Single Page Application frontend."""
     return templates.TemplateResponse(request=request, name="index.html")
+
+
+# Auth API Endpoints
+
+@app.post("/api/auth/register")
+async def api_register(payload: UserRegisterRequest, response: Response):
+    """Registers a new user account."""
+    res = utils.register_user(payload.email, payload.password, payload.name)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error"))
+    token = res.get("token")
+    response.set_cookie(key="pytune_session", value=token, max_age=30*24*3600, httponly=False)
+    return JSONResponse(res)
+
+
+@app.post("/api/auth/login")
+async def api_login(payload: UserLoginRequest, response: Response):
+    """Logs in an existing user with email & password."""
+    res = utils.login_user(payload.email, payload.password)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error"))
+    token = res.get("token")
+    response.set_cookie(key="pytune_session", value=token, max_age=30*24*3600, httponly=False)
+    return JSONResponse(res)
+
+
+@app.post("/api/auth/oauth")
+async def api_oauth_login(payload: OAuthLoginRequest, response: Response):
+    """Logs in or registers user via Google or Microsoft OAuth."""
+    res = utils.login_oauth_user(payload.provider, payload.email, payload.name, payload.avatar)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error"))
+    token = res.get("token")
+    response.set_cookie(key="pytune_session", value=token, max_age=30*24*3600, httponly=False)
+    return JSONResponse(res)
+
+
+@app.get("/api/auth/me")
+async def api_get_current_user(request: Request):
+    """Returns currently authenticated user profile."""
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if not token:
+        token = request.cookies.get("pytune_session", "")
+    
+    user = utils.get_user_by_session(token)
+    if not user:
+        return JSONResponse({"authenticated": False, "user": None})
+    return JSONResponse({"authenticated": True, "user": user})
+
+
+@app.post("/api/auth/logout")
+async def api_logout(request: Request, response: Response):
+    """Logs out user and clears session cookie."""
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if not token:
+        token = request.cookies.get("pytune_session", "")
+    utils.logout_user(token)
+    response.delete_cookie("pytune_session")
+    return JSONResponse({"success": True})
+
 
 
 @app.get("/api/search")

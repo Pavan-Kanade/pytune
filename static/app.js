@@ -20,6 +20,7 @@ const quickSuggestions = [
 // Initialize Application on Page Load
 document.addEventListener("DOMContentLoaded", async () => {
     await fetchAppData();
+    await checkAuthStatus();
     renderGenres();
     renderQuickMixes();
     setupSeekSlider();
@@ -589,3 +590,197 @@ function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
+
+// ==========================================================================
+// USER AUTHENTICATION & PROFILE CONTROLLER
+// ==========================================================================
+
+let currentUser = null;
+let currentAuthMode = 'login'; // 'login' or 'register'
+
+async function checkAuthStatus() {
+    try {
+        const token = localStorage.getItem('pytune_token');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch('/api/auth/me', { headers });
+        if (response.ok) {
+            const data = await response.json();
+            if (data.authenticated && data.user) {
+                currentUser = data.user;
+                updateAuthUI(currentUser);
+                return;
+            }
+        }
+    } catch (e) {
+        console.error("Auth status check error:", e);
+    }
+    // Automatically open Auth Modal if user is not logged in
+    openAuthModal('login');
+}
+
+function openAuthModal(mode = 'login') {
+    switchAuthTab(mode);
+    const modal = document.getElementById('auth-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeAuthModal() {
+    const modal = document.getElementById('auth-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchAuthTab(mode) {
+    currentAuthMode = mode;
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const nameGroup = document.getElementById('field-name-group');
+    const submitBtn = document.getElementById('btn-auth-submit');
+    const subtitleText = document.getElementById('auth-subtitle-text');
+    const errorMsg = document.getElementById('auth-error-msg');
+
+    if (errorMsg) errorMsg.style.display = 'none';
+
+    if (mode === 'register') {
+        tabLogin.classList.remove('active');
+        tabRegister.classList.add('active');
+        if (nameGroup) nameGroup.style.display = 'flex';
+        if (submitBtn) submitBtn.innerText = 'Sign Up';
+        if (subtitleText) subtitleText.innerText = 'Create a free PyTune account to save your music library.';
+    } else {
+        tabRegister.classList.remove('active');
+        tabLogin.classList.add('active');
+        if (nameGroup) nameGroup.style.display = 'none';
+        if (submitBtn) submitBtn.innerText = 'Log In';
+        if (subtitleText) subtitleText.innerText = 'Log in or create an account to start listening.';
+    }
+}
+
+async function submitAuthForm(event) {
+    event.preventDefault();
+    const email = document.getElementById('auth-input-email').value;
+    const password = document.getElementById('auth-input-password').value;
+    const nameInput = document.getElementById('auth-input-name');
+    const name = nameInput ? nameInput.value : '';
+    const errorMsg = document.getElementById('auth-error-msg');
+    
+    if (errorMsg) errorMsg.style.display = 'none';
+
+    const endpoint = currentAuthMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+    const payload = currentAuthMode === 'register' ? { email, password, name } : { email, password };
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            if (errorMsg) {
+                errorMsg.innerText = data.detail || data.error || 'Authentication failed. Please check details.';
+                errorMsg.style.display = 'block';
+            }
+            return;
+        }
+
+        if (data.token) {
+            localStorage.setItem('pytune_token', data.token);
+        }
+
+        currentUser = data.user;
+        updateAuthUI(currentUser);
+        closeAuthModal();
+        showToast(currentAuthMode === 'register' ? 'Account created successfully! Welcome to PyTune.' : `Welcome back, ${currentUser.name}!`);
+    } catch (e) {
+        if (errorMsg) {
+            errorMsg.innerText = 'Server connection error. Please try again.';
+            errorMsg.style.display = 'block';
+        }
+    }
+}
+
+async function handleOAuthLogin(provider) {
+    const errorMsg = document.getElementById('auth-error-msg');
+    if (errorMsg) errorMsg.style.display = 'none';
+
+    let providerName = provider === 'google' ? 'Google' : 'Microsoft';
+    let defaultEmail = provider === 'google' ? `user_${Math.floor(Math.random()*1000)}@gmail.com` : `user_${Math.floor(Math.random()*1000)}@outlook.com`;
+    
+    let displayName = prompt(`Enter your name for ${providerName} sign-in:`, `${providerName} Listener`);
+    if (!displayName) return;
+
+    try {
+        const response = await fetch('/api/auth/oauth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: provider,
+                email: defaultEmail,
+                name: displayName,
+                avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${defaultEmail}`
+            })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+            if (data.token) {
+                localStorage.setItem('pytune_token', data.token);
+            }
+            currentUser = data.user;
+            updateAuthUI(currentUser);
+            closeAuthModal();
+            showToast(`Signed in with ${providerName} as ${currentUser.name}!`);
+        } else {
+            if (errorMsg) {
+                errorMsg.innerText = data.detail || 'OAuth Sign-in failed.';
+                errorMsg.style.display = 'block';
+            }
+        }
+    } catch (e) {
+        console.error("OAuth error:", e);
+    }
+}
+
+async function handleLogout() {
+    const token = localStorage.getItem('pytune_token');
+    try {
+        await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+    } catch (e) {
+        console.error(e);
+    }
+    localStorage.removeItem('pytune_token');
+    currentUser = null;
+    updateAuthUI(null);
+    showToast('Logged out of PyTune.');
+    openAuthModal('login');
+}
+
+function skipAuthGuest(event) {
+    if (event) event.preventDefault();
+    closeAuthModal();
+    showToast('Browsing PyTune in Guest Mode.');
+}
+
+function updateAuthUI(user) {
+    const headerLoginBtn = document.getElementById('btn-header-login');
+    const userBadge = document.getElementById('user-profile-badge');
+    const badgeAvatar = document.getElementById('user-badge-avatar');
+    const badgeName = document.getElementById('user-badge-name');
+
+    if (user) {
+        if (headerLoginBtn) headerLoginBtn.style.display = 'none';
+        if (userBadge) userBadge.style.display = 'flex';
+        if (badgeName) badgeName.innerText = user.name || user.email;
+        if (badgeAvatar) badgeAvatar.src = user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.email}`;
+    } else {
+        if (headerLoginBtn) headerLoginBtn.style.display = 'block';
+        if (userBadge) userBadge.style.display = 'none';
+    }
+}
+
